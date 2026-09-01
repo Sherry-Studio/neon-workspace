@@ -24,6 +24,9 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const { data: session } = useSession();
 
+  // Full-screen games take over the viewport and hide the site chrome.
+  const immersive = pathname?.startsWith("/games/neon-void");
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
@@ -36,6 +39,8 @@ export default function Navbar() {
     if (base === "/") return pathname === "/";
     return pathname === base || pathname.startsWith(base + "/");
   };
+
+  if (immersive) return null;
 
   return (
     <>

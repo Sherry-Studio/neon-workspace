@@ -7,6 +7,35 @@ import { BlogCategory, BlogStatus, GameCategory, GameStatus } from '../types';
  */
 export const seedGames = [
   {
+    title: 'NEON VOID — LAST ORBIT',
+    slug: 'neon-void',
+    shortDescription:
+      'A fast-paced 3D space-combat arcade game. Pilot the NX-01 Phantom, break the Rift fleet and destroy the Rift Core.',
+    description:
+      'NEON VOID — LAST ORBIT is a cinematic 3D arcade shooter. You are the last pilot of a shattered human fleet, flying an experimental prototype against THE RIFT — an alien faction tearing dimensional portals through the solar system. Nine missions across three sectors, three boss fights, an upgradeable ship, combo-driven scoring and style ranks. Built directly into NEON ARCADE with React Three Fiber.',
+    category: GameCategory.SHOOTER,
+    status: GameStatus.PUBLISHED,
+    featured: true,
+    gameUrl: '/games/neon-void',
+    version: '1.0.0',
+    thumbnail: '/images/quantum-break.jpg',
+    banner: '/images/quantum-break.jpg',
+    genre: 'SPACE COMBAT',
+    tagline: 'Fly the Phantom. End the Rift.',
+    gradient: 'linear-gradient(135deg, #0a0a1f 0%, #1a0a3e 50%, #3e0a4a 100%)',
+    instructions:
+      'Survive enemy waves, protect what is left of humanity and reach the Rift Core before the dimensional collapse. WASD to fly, mouse to aim, click to fire.',
+    controls: [
+      'WASD — Fly / strafe',
+      'Mouse — Aim',
+      'Left click — Pulse Cannon',
+      'Right click / R — Rift Missile',
+      'Space — Boost',
+      'E — EMP Burst',
+      'Esc — Pause',
+    ],
+  },
+  {
     title: 'Neon Runner',
     slug: 'neon-runner',
     shortDescription: 'Dash through neon-lit cityscapes in the endless runner that defined a generation of browser play.',

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 /**
  * A minimal glowing point with a ring that trails it. The ring swells over
@@ -10,8 +11,11 @@ import { useEffect, useRef } from "react";
 export default function CustomCursor() {
   const dot = useRef<HTMLDivElement>(null);
   const ring = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const immersive = pathname?.startsWith("/games/neon-void");
 
   useEffect(() => {
+    if (immersive) return;
     if (window.matchMedia("(pointer: coarse)").matches) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -68,7 +72,9 @@ export default function CustomCursor() {
       cancelAnimationFrame(raf);
       root.classList.remove("cursor-active", "cursor-hot");
     };
-  }, []);
+  }, [immersive]);
+
+  if (immersive) return null;
 
   return (
     <>
