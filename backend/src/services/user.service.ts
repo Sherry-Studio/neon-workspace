@@ -100,10 +100,20 @@ export async function adminListUsers(q: ListQuery) {
       { email: { $regex: q.search, $options: 'i' } },
     ];
   }
-  if (q.status === 'active') filter.isActive = true;
-  if (q.status === 'suspended') filter.isActive = false;
-  if (q.status === 'verified') filter.isVerified = true;
-  if (q.status === 'unverified') filter.isVerified = false;
+  const status = q.status?.toLowerCase();
+  if (status === 'active') filter.isActive = true;
+  if (status === 'suspended') filter.isActive = false;
+  if (status === 'verified') filter.isVerified = true;
+  if (status === 'unverified') filter.isVerified = false;
+
+  const roles = (q as ListQuery & { role?: string }).role;
+  if (roles) {
+    const list = String(roles)
+      .split(',')
+      .map((r) => r.trim().toUpperCase())
+      .filter(Boolean);
+    if (list.length) filter.role = { $in: list };
+  }
 
   const sort = buildSort(q.sort, { createdAt: -1 });
   const [docs, total] = await Promise.all([

@@ -37,6 +37,8 @@ router.use(requireAuth, requireAdmin);
 // ── Dashboard & analytics (admin panel aggregates) ──
 router.get('/dashboard', extras.dashboard);
 router.get('/analytics', extras.analytics);
+router.get('/leaderboard', extras.adminLeaderboard);
+router.get('/search', extras.adminSearch);
 
 // ── Users ──
 router.get('/users', admin.listUsers);
@@ -73,6 +75,7 @@ router.patch('/blog/:id/publish', validate({ params: idParam, body: publishBlogS
 
 // ── Scores & leaderboard ──
 router.get('/scores', validate({ query: adminScoresQuery }), score.adminList);
+router.get('/scores/:id', validate({ params: idParam }), extras.scoreById);
 router.patch('/scores/:id/flag', validate({ params: idParam, body: flagScoreSchema }), score.adminFlag);
 router.delete('/scores/:id', validate({ params: idParam }), score.adminDelete);
 router.post('/leaderboard/:gameId/reset', score.adminResetGameLeaderboard);

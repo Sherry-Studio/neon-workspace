@@ -1,7 +1,7 @@
 import type { ApiError } from "@/lib/types";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "/api/mock";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "/api/admin";
 
 export class ApiRequestError extends Error implements ApiError {
   status: number;

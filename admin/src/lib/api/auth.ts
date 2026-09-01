@@ -2,9 +2,9 @@ import type { AuthUser } from "@/lib/types";
 
 /**
  * Auth goes through this admin app's own session routes (`/api/session/*`),
- * which own the httpOnly cookie. In mock mode they validate against the mock
- * user store; against a real backend they proxy `POST /auth/login` and stash the
- * returned access token in the session.
+ * which own the httpOnly cookie. They proxy `POST /auth/login` on the backend,
+ * verify the account has an ADMIN / SUPER_ADMIN role, and stash the returned
+ * access token in the signed session cookie for the `/api/admin` proxy to use.
  */
 export const authApi = {
   async login(email: string, password: string): Promise<AuthUser> {

@@ -6,51 +6,42 @@ import {
   createSessionToken,
 } from "@/lib/auth/session";
 import { canAccessAdmin, permissionsForRole } from "@/lib/permissions";
-import { API_BASE_URL } from "@/lib/api/client";
-import { db } from "@/lib/mock/store";
 import type { AuthUser } from "@/lib/types";
 
-const USING_MOCK = API_BASE_URL === "/api/mock";
+const BACKEND = (
+  process.env.BACKEND_INTERNAL_URL || "http://localhost:4000/api"
+).replace(/\/$/, "");
 
-async function resolveUser(
-  email: string,
-  password: string,
-): Promise<{ user: AuthUser; accessToken?: string } | null> {
-  if (USING_MOCK) {
-    const cred = db().credentials[email.toLowerCase()];
-    if (!cred || cred.password !== password) return null;
-    const record = db().users.find((u) => u.id === cred.userId);
-    if (!record) return null;
-    const user: AuthUser = {
-      id: record.id,
-      username: record.username,
-      email: record.email,
-      role: record.role,
-      avatar: record.avatar ?? null,
-      permissions: permissionsForRole(record.role),
-    };
-    return { user };
-  }
+interface Resolved {
+  user: AuthUser;
+  accessToken: string;
+}
 
-  // Real backend: proxy the credentials, keep the returned access token.
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+async function resolveUser(email: string, password: string): Promise<Resolved | null> {
+  const res = await fetch(`${BACKEND}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    // The backend accepts `identifier` (username OR email) or `email`.
+    body: JSON.stringify({ identifier: email, email, password }),
   });
   if (!res.ok) return null;
-  const data = await res.json().catch(() => null);
-  const u = data?.user ?? data;
-  if (!u?.role) return null;
-  const user: AuthUser = {
-    id: u.id,
-    username: u.username,
-    email: u.email,
-    role: u.role,
-    avatar: u.avatar ?? null,
-    permissions: u.permissions?.length ? u.permissions : permissionsForRole(u.role),
+
+  const json = await res.json().catch(() => null);
+  const u = json?.data?.user ?? json?.user ?? json?.data;
+  const accessToken = json?.data?.accessToken ?? json?.accessToken;
+  if (!u?.role || !accessToken) return null;
+
+  return {
+    accessToken,
+    user: {
+      id: u.id,
+      username: u.username,
+      email: u.email ?? "",
+      role: u.role,
+      avatar: u.avatar ?? null,
+      permissions: u.permissions?.length ? u.permissions : permissionsForRole(u.role),
+    },
   };
-  return { user, accessToken: data?.accessToken ?? data?.token };
 }
 
 export async function POST(req: Request) {
@@ -60,6 +51,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ message: "Invalid request body." }, { status: 400 });
   }
+
   const email = body.email?.trim();
   const password = body.password ?? "";
   if (!email || !password) {
@@ -69,7 +61,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let resolved: Awaited<ReturnType<typeof resolveUser>>;
+  let resolved: Resolved | null;
   try {
     resolved = await resolveUser(email, password);
   } catch {

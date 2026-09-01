@@ -110,7 +110,14 @@ userSchema.methods.toAdminJSON = function (this: IUser) {
     role: this.role,
     isActive: this.isActive,
     isVerified: this.isVerified,
+    // `status` is derived from `isActive` for admin-panel convenience.
+    status: this.isActive ? 'ACTIVE' : 'SUSPENDED',
     stats: this.stats,
+    // Flattened stat fields the admin panel reads directly.
+    gamesPlayed: this.stats.gamesPlayed,
+    totalScore: this.stats.totalScore,
+    highestScore: this.stats.highestScore,
+    achievements: this.achievements ?? [],
     lastLoginAt: this.lastLoginAt ?? null,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,

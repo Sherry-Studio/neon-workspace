@@ -75,6 +75,7 @@ gameSchema.methods.toPublicJSON = function (this: IGame) {
     title: this.title,
     slug: this.slug,
     description: this.description,
+    fullDescription: this.description, // admin panel field name
     shortDescription: this.shortDescription,
     thumbnail: this.thumbnail,
     banner: this.banner,

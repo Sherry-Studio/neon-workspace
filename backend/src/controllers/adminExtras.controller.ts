@@ -270,6 +270,95 @@ export const audienceCount = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, { count }, 'Audience count');
 });
 
+// ── GET /admin/scores/:id ──────────────────────────────────────────────────
+export const scoreById = asyncHandler(async (req: Request, res: Response) => {
+  const s = await Score.findById(req.params.id)
+    .populate('userId', 'username avatar email')
+    .populate('gameId', 'title slug')
+    .lean();
+  if (!s) {
+    res.status(404).json({ success: false, message: 'Score not found', errors: [] });
+    return;
+  }
+  sendSuccess(res, {
+    score: {
+      id: String(s._id),
+      userId: String((s.userId as { _id?: unknown })?._id ?? s.userId),
+      username: (s.userId as { username?: string })?.username ?? 'unknown',
+      gameId: String((s.gameId as { _id?: unknown })?._id ?? s.gameId),
+      gameTitle: (s.gameId as { title?: string })?.title ?? 'unknown',
+      score: s.score,
+      duration: s.duration,
+      suspicious: s.flagged,
+      flagReason: s.flagReason ?? null,
+      createdAt: s.createdAt,
+    },
+  });
+});
+
+// ── GET /admin/leaderboard ─────────────────────────────────────────────────
+export const adminLeaderboard = asyncHandler(async (req: Request, res: Response) => {
+  const gameId = req.query.gameId ? String(req.query.gameId) : undefined;
+  const limit = Math.min(100, Number(req.query.limit) || 50);
+  const match: Record<string, unknown> = { flagged: false };
+  if (gameId) match.gameId = gameId;
+
+  const [rows, topGames, topPlayers] = await Promise.all([
+    Score.find(match)
+      .sort({ score: -1 })
+      .limit(limit)
+      .populate('userId', 'username avatar')
+      .populate('gameId', 'title')
+      .lean(),
+    Game.find().sort({ plays: -1 }).limit(6).select('title plays').lean(),
+    User.find().sort({ 'stats.highestScore': -1 }).limit(6).select('username stats').lean(),
+  ]);
+
+  sendSuccess(res, {
+    entries: rows.map((s, i) => ({
+      rank: i + 1,
+      id: String(s._id),
+      userId: String((s.userId as { _id?: unknown })?._id ?? s.userId),
+      username: (s.userId as { username?: string })?.username ?? 'unknown',
+      gameId: String((s.gameId as { _id?: unknown })?._id ?? s.gameId),
+      gameTitle: (s.gameId as { title?: string })?.title ?? 'unknown',
+      score: s.score,
+      suspicious: s.flagged,
+      createdAt: s.createdAt,
+    })),
+    topGames: topGames.map((g) => ({ label: g.title, value: g.plays })),
+    topPlayers: topPlayers.map((u) => ({
+      label: u.username,
+      value: u.stats?.highestScore ?? 0,
+    })),
+  });
+});
+
+// ── GET /admin/search?q= ───────────────────────────────────────────────────
+export const adminSearch = asyncHandler(async (req: Request, res: Response) => {
+  const q = String(req.query.q ?? '').trim();
+  if (!q) {
+    sendSuccess(res, { users: [], games: [], blog: [], scores: [] }, 'Search');
+    return;
+  }
+  const rx = { $regex: q, $options: 'i' };
+  const [users, games, blog] = await Promise.all([
+    User.find({ $or: [{ username: rx }, { email: rx }] }).limit(5),
+    Game.find({ title: rx }).limit(5),
+    Blog.find({ title: rx }).limit(5),
+  ]);
+  sendSuccess(
+    res,
+    {
+      users: users.map((u) => u.toAdminJSON()),
+      games: games.map((g) => g.toPublicJSON()),
+      blog: blog.map((b) => b.toPublicJSON()),
+      scores: [],
+    },
+    'Search',
+  );
+});
+
 // ── GET /admin/notifications/push-status ────────────────────────────────────
 export const pushStatus = asyncHandler(async (_req: Request, res: Response) => {
   sendSuccess(

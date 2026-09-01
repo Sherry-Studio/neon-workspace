@@ -13,7 +13,10 @@ import { Role } from '../types';
 // ── Users ──────────────────────────────────────────────────────────────────
 
 export const listUsers = asyncHandler(async (req: Request, res: Response) => {
-  const result = await userService.adminListUsers(parseListQuery(req));
+  const result = await userService.adminListUsers({
+    ...parseListQuery(req),
+    role: req.query.role ? String(req.query.role) : undefined,
+  } as never);
   sendPaginated(res, result, 'Users');
 });
 
