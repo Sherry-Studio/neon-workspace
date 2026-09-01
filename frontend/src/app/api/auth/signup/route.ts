@@ -1,63 +1,69 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { readUsers, writeUsers } from "@/lib/auth";
 import { isValidAvatarId, DEFAULT_AVATAR_ID } from "@/lib/avatars";
 
+/**
+ * Proxies registration to the NEON ARCADE backend (`POST /auth/register`).
+ * The backend is the single source of truth for accounts — there is no local
+ * user store. On success the client then calls next-auth `signIn()` with the
+ * same credentials to establish the session.
+ */
+
+const BACKEND = (
+  process.env.BACKEND_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://localhost:4000/api"
+).replace(/\/$/, "");
+
 export async function POST(request: Request) {
+  let payload: { username?: string; email?: string; password?: string; avatar?: string };
   try {
-    const { username, password, avatar } = await request.json();
-
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: "Username and password are required" },
-        { status: 400 }
-      );
-    }
-
-    if (username.length < 3) {
-      return NextResponse.json(
-        { error: "Username must be at least 3 characters" },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
-        { status: 400 }
-      );
-    }
-
-    const users = readUsers();
-    const exists = users.find((u) => u.username === username);
-    if (exists) {
-      return NextResponse.json(
-        { error: "Username already taken" },
-        { status: 409 }
-      );
-    }
-
-    const avatarId =
-      typeof avatar === "string" && isValidAvatarId(avatar)
-        ? avatar
-        : DEFAULT_AVATAR_ID;
-
-    const hashed = await bcrypt.hash(password, 10);
-    const newUser = {
-      id: crypto.randomUUID(),
-      username,
-      password: hashed,
-      avatar: avatarId,
-    };
-
-    users.push(newUser);
-    writeUsers(users);
-
-    return NextResponse.json({ message: "User created successfully" }, { status: 201 });
+    payload = await request.json();
   } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  const { username, email, password } = payload;
+  if (!username || !password) {
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: "Username and password are required" },
+      { status: 400 },
     );
   }
+
+  const avatar =
+    typeof payload.avatar === "string" && isValidAvatarId(payload.avatar)
+      ? payload.avatar
+      : DEFAULT_AVATAR_ID;
+
+  let res: Response;
+  try {
+    res = await fetch(`${BACKEND}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username,
+        password,
+        avatar,
+        ...(email ? { email } : {}),
+      }),
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Could not reach the server. Please try again." },
+      { status: 502 },
+    );
+  }
+
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok || json?.success === false) {
+    // Surface a friendly, field-aware message without leaking internals.
+    const first = json?.errors?.[0]?.message as string | undefined;
+    return NextResponse.json(
+      { error: first || json?.message || "Could not create your account" },
+      { status: res.status === 409 ? 409 : res.status || 400 },
+    );
+  }
+
+  return NextResponse.json({ message: "User created successfully" }, { status: 201 });
 }

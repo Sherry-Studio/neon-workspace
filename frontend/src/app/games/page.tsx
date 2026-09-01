@@ -1,31 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GameCoverCard from "@/components/site/GameCoverCard";
+import { gamesService } from "@/services";
+import { ApiError } from "@/lib/api/client";
+import type { Game } from "@/types/api";
 
-const categories = [
-  { label: "ALL", key: "All" },
-  { label: "ACTION", key: "Action" },
-  { label: "RACING", key: "Racing" },
-  { label: "PUZZLE", key: "Puzzle" },
-  { label: "STRATEGY", key: "Strategy" },
-] as const;
-
-const allGames = [
-  { title: "Cyber Runner", genre: "Action", tagline: "Dash through neon-lit cityscapes.", category: "Action", platform: "Browser", image: "/images/cyber-runner.jpg", gradient: "linear-gradient(135deg,#0f1027,#16213e 55%,#0f3460)" },
-  { title: "Neon Drift", genre: "Racing", tagline: "Master the art of the drift.", category: "Racing", platform: "Browser", image: "/images/neon-drift.jpg", gradient: "linear-gradient(135deg,#241435,#1a0a2e 55%,#16213e)" },
-  { title: "Pixel Blaster", genre: "Action", tagline: "Retro-inspired shoot-'em-up.", category: "Action", platform: "Browser", image: "/images/pixel-blaster.jpg", gradient: "linear-gradient(135deg,#221a0f,#2a1c10 55%,#170f0a)" },
-  { title: "Grid Wars", genre: "Puzzle", tagline: "Strategic grid-based combat.", category: "Puzzle", platform: "Browser", image: "/images/grid-wars.jpg", gradient: "linear-gradient(135deg,#0b1b18,#10241f 55%,#0a1a16)" },
-  { title: "Shadow Protocol", genre: "Stealth", tagline: "Stealth missions in the dark.", category: "Action", platform: "Browser", image: "/images/shadow-protocol.jpg", gradient: "linear-gradient(135deg,#10182e,#141428 55%,#0a0a14)" },
-  { title: "Quantum Break", genre: "Puzzle", tagline: "Bend time, solve the impossible.", category: "Puzzle", platform: "Browser", image: "/images/quantum-break.jpg", gradient: "linear-gradient(135deg,#141a2e,#1a1030 55%,#0a0e1a)" },
-  { title: "Velocity X", genre: "Racing", tagline: "Pure speed, zero limits.", category: "Racing", platform: "Browser", image: "/images/velocity-x.jpg", gradient: "linear-gradient(135deg,#0a1628,#1a2332 55%,#0d1b2a)" },
-  { title: "Neural Link", genre: "Strategy", tagline: "Connect minds, conquer worlds.", category: "Strategy", platform: "Browser", image: "/images/neural-link.jpg", gradient: "linear-gradient(135deg,#0b1b18,#12241f 55%,#0a1a16)" },
-];
+const FALLBACK_CATEGORIES = ["ARCADE", "RACING", "SHOOTER", "ACTION", "CASUAL"];
 
 export default function GamesPage() {
+  const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES);
   const [active, setActive] = useState<string>("All");
-  const games = active === "All" ? allGames : allGames.filter((g) => g.category === active);
+  const [games, setGames] = useState<Game[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    gamesService
+      .categories()
+      .then((c) => c.length && setCategories(c))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    setStatus("loading");
+    gamesService
+      .list(
+        { limit: 48, ...(active !== "All" ? { category: active } : {}) },
+        ctrl.signal,
+      )
+      .then((page) => {
+        setGames(page.items);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (ctrl.signal.aborted) return;
+        setErrorMsg(
+          err instanceof ApiError ? err.message : "Could not load games right now.",
+        );
+        setStatus("error");
+      });
+    return () => ctrl.abort();
+  }, [active]);
+
+  const tabs = useMemo(
+    () => ["All", ...categories],
+    [categories],
+  );
 
   return (
     <div className="relative z-10 bg-surface/[0.94]">
@@ -39,21 +62,23 @@ export default function GamesPage() {
           <span className="eyebrow">The Showcase</span>
           <h1 className="display mt-4 text-5xl text-white md:text-8xl">ALL GAMES</h1>
           <p className="mt-4 text-sm tracking-wide text-text-muted">
-            {games.length} TITLE{games.length !== 1 ? "S" : ""} · BROWSER-NATIVE
+            {status === "ready"
+              ? `${games.length} TITLE${games.length !== 1 ? "S" : ""} · BROWSER-NATIVE`
+              : "BROWSER-NATIVE"}
           </p>
         </motion.div>
 
         <div className="mb-16 flex gap-7 overflow-x-auto pb-2 scrollbar-hide md:gap-9">
-          {categories.map((cat) => (
+          {tabs.map((cat) => (
             <button
-              key={cat.key}
-              onClick={() => setActive(cat.key)}
+              key={cat}
+              onClick={() => setActive(cat)}
               className={`relative whitespace-nowrap pb-2 text-[11px] uppercase tracking-[0.24em] transition-colors duration-300 ${
-                active === cat.key ? "text-white" : "text-text-muted hover:text-text-secondary"
+                active === cat ? "text-white" : "text-text-muted hover:text-text-secondary"
               }`}
             >
-              {cat.label}
-              {active === cat.key && (
+              {cat}
+              {active === cat && (
                 <motion.span
                   layoutId="activeGameTab"
                   className="absolute inset-x-0 bottom-0 h-px bg-accent-cyan"
@@ -64,33 +89,66 @@ export default function GamesPage() {
           ))}
         </div>
 
-        <motion.div layout className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <AnimatePresence mode="popLayout">
-            {games.map((game, i) => (
-              <motion.div
-                key={game.title}
-                layout
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.3), ease: [0.16, 1, 0.3, 1] }}
-              >
-                <GameCoverCard
-                  title={game.title}
-                  genre={game.genre}
-                  tagline={game.tagline}
-                  platform={game.platform}
-                  image={game.image}
-                  gradient={game.gradient}
-                />
-              </motion.div>
+        {status === "loading" && (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="aspect-[3/4] w-full animate-pulse rounded-xl border border-border bg-surface-elevated/40"
+              />
             ))}
-          </AnimatePresence>
-        </motion.div>
+          </div>
+        )}
 
-        {games.length === 0 && (
+        {status === "error" && (
+          <div className="py-24 text-center">
+            <p className="text-sm uppercase tracking-wide text-text-muted">{errorMsg}</p>
+            <button
+              onClick={() => setActive((a) => a)}
+              className="mt-4 border border-border px-5 py-2 text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:border-accent-cyan/60"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {status === "ready" && (
+          <motion.div
+            layout
+            className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <AnimatePresence mode="popLayout">
+              {games.map((game, i) => (
+                <motion.div
+                  key={game.id}
+                  layout
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: Math.min(i * 0.05, 0.3),
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                >
+                  <GameCoverCard
+                    title={game.title}
+                    genre={game.genre || game.category}
+                    tagline={game.tagline || game.shortDescription}
+                    platform={game.platform || "Browser"}
+                    image={game.image || game.thumbnail || "/images/cyber-runner.jpg"}
+                    gradient={game.gradient}
+                    href={`/games/${game.slug}`}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {status === "ready" && games.length === 0 && (
           <div className="py-24 text-center text-sm uppercase tracking-wide text-text-muted">
-            No games in this category
+            No games in this category yet
           </div>
         )}
       </div>

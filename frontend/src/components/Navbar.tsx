@@ -8,9 +8,11 @@ import { Menu, X, LogIn } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import Avatar from "@/components/ui/Avatar";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 
 const navLinks = [
   { href: "/games", label: "GAMES" },
+  { href: "/leaderboard", label: "LEADERBOARD" },
   { href: "/vault", label: "THE VAULT" },
   { href: "/#studio", label: "STUDIO" },
 ];
@@ -80,6 +82,7 @@ export default function Navbar() {
 
             {session ? (
               <div className="flex items-center gap-4">
+                <NotificationBell />
                 <Link
                   href="/profile"
                   className="flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.2em] text-text-secondary transition-colors hover:text-text-primary"

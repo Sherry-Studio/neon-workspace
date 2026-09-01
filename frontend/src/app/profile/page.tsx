@@ -1,24 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Pencil, X, Gamepad2, Trophy, Star } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import { AVATARS, DEFAULT_AVATAR_ID, getAvatar } from "@/lib/avatars";
+import type { ProfileStats } from "@/types/api";
 
-const stats = [
-  { icon: Gamepad2, label: "Games Played", value: "42" },
-  { icon: Trophy, label: "High Score", value: "98,750" },
-  { icon: Star, label: "Global Rank", value: "#7" },
-];
+interface ActivityRow {
+  game: string;
+  score: string;
+  time: string;
+}
 
-const activity = [
-  { game: "Cyber Runner", score: "12,500", time: "2 hours ago" },
-  { game: "Neon Drift", score: "8,700", time: "5 hours ago" },
-  { game: "Grid Wars", score: "15,200", time: "1 day ago" },
-];
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs !== 1 ? "s" : ""} ago`;
+  const days = Math.round(hrs / 24);
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
+}
 
 export default function ProfilePage() {
   const { status, update } = useSession();
@@ -26,6 +33,8 @@ export default function ProfilePage() {
 
   const [username, setUsername] = useState("");
   const [avatar, setAvatar] = useState(DEFAULT_AVATAR_ID);
+  const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -41,12 +50,25 @@ export default function ProfilePage() {
   useEffect(() => {
     if (status !== "authenticated") return;
     let active = true;
-    fetch("/api/profile")
-      .then((r) => r.json())
-      .then((d) => {
+    Promise.all([
+      fetch("/api/profile").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/backend/scores/my?limit=5").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([d, scores]) => {
         if (!active) return;
         if (d?.username) setUsername(d.username);
         if (d?.avatar) setAvatar(d.avatar);
+        if (d?.stats) setProfileStats(d.stats);
+        const rows = scores?.data ?? [];
+        setActivity(
+          rows.map((s: Record<string, unknown>) => ({
+            game:
+              (s.gameId as { title?: string } | null)?.title ??
+              (typeof s.gameId === "string" ? "Game" : "Unknown"),
+            score: Number(s.score ?? 0).toLocaleString(),
+            time: relativeTime(String(s.createdAt ?? new Date().toISOString())),
+          })),
+        );
       })
       .catch(() => {})
       .finally(() => {
@@ -291,11 +313,15 @@ export default function ProfilePage() {
 
       {/* ── Stats ── */}
       <div className="mt-16 grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-3">
-        {stats.map((stat) => (
+        {[
+          { icon: Gamepad2, label: "Games Played", value: profileStats?.gamesPlayed ?? 0 },
+          { icon: Trophy, label: "High Score", value: profileStats?.highestScore ?? 0 },
+          { icon: Star, label: "Total Score", value: profileStats?.totalScore ?? 0 },
+        ].map((stat) => (
           <div key={stat.label} className="flex flex-col items-center bg-surface px-6 py-10 text-center">
             <stat.icon size={22} className="mb-4 text-text-secondary" strokeWidth={1.5} />
             <div className="font-[family-name:var(--font-heading)] text-3xl font-bold tracking-tight text-white">
-              {stat.value}
+              {stat.value.toLocaleString()}
             </div>
             <div className="mt-2 text-[10px] uppercase tracking-[0.25em] text-text-muted">
               {stat.label}
@@ -309,19 +335,34 @@ export default function ProfilePage() {
         <h2 className="mb-6 text-xs font-medium uppercase tracking-[0.25em] text-text-muted">
           Recent Activity
         </h2>
-        <div className="divide-y divide-border">
-          {activity.map((item) => (
-            <div key={item.game} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-              <span className="font-medium text-white">{item.game}</span>
-              <div className="flex items-center gap-6">
-                <span className="font-[family-name:var(--font-heading)] text-sm text-accent-blue">
-                  {item.score}
-                </span>
-                <span className="text-xs text-text-muted">{item.time}</span>
+        {activity.length === 0 ? (
+          <p className="py-4 text-sm text-text-muted">
+            No games played yet.{" "}
+            <Link
+              href="/games"
+              className="text-accent-blue underline-offset-4 hover:underline"
+            >
+              Jump into a game →
+            </Link>
+          </p>
+        ) : (
+          <div className="divide-y divide-border">
+            {activity.map((item, i) => (
+              <div
+                key={`${item.game}-${i}`}
+                className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
+              >
+                <span className="font-medium text-white">{item.game}</span>
+                <div className="flex items-center gap-6">
+                  <span className="font-[family-name:var(--font-heading)] text-sm text-accent-blue">
+                    {item.score}
+                  </span>
+                  <span className="text-xs text-text-muted">{item.time}</span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

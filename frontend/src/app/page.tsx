@@ -8,18 +8,28 @@ import MagneticButton from "@/components/ui/MagneticButton";
 import HorizontalScroll from "@/components/ui/HorizontalScroll";
 import LiveCounter from "@/components/ui/LiveCounter";
 import Timeline from "@/components/Timeline";
-import { articles } from "@/lib/articles";
+import { gamesService, blogsService } from "@/services";
+import type { Game, BlogPost } from "@/types/api";
 
-const discoverGames = [
-  { index: "01", genre: "ACTION", title: "Cyber Runner", tagline: "Dash through neon-lit skylines.", gradient: "linear-gradient(135deg, #0f1027 0%, #16213e 55%, #0f3460 100%)", image: "/images/cyber-runner.jpg" },
-  { index: "02", genre: "RACING", title: "Neon Drift", tagline: "Own every corner.", gradient: "linear-gradient(135deg, #241435 0%, #1a0a2e 55%, #16213e 100%)", image: "/images/neon-drift.jpg" },
-  { index: "03", genre: "PUZZLE", title: "Grid Wars", tagline: "Outthink the grid.", gradient: "linear-gradient(135deg, #0b1b18 0%, #10241f 55%, #0a1a16 100%)", image: "/images/grid-wars.jpg" },
-  { index: "04", genre: "STEALTH", title: "Shadow Protocol", tagline: "Move unseen.", gradient: "linear-gradient(135deg, #10182e 0%, #141428 55%, #0a0a14 100%)", image: "/images/shadow-protocol.jpg" },
-  { index: "05", genre: "ARCADE", title: "Pixel Blaster", tagline: "Retro firepower, modern edge.", gradient: "linear-gradient(135deg, #221a0f 0%, #2a1c10 55%, #170f0a 100%)", image: "/images/pixel-blaster.jpg" },
-];
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const vaultPreview = articles.slice(0, 2);
+const FALLBACK_IMAGE = "/images/cyber-runner.jpg";
+
+export default async function HomePage() {
+  let featured: Game[] = [];
+  let posts: BlogPost[] = [];
+  try {
+    [featured, posts] = await Promise.all([
+      gamesService.featured(6),
+      blogsService.list({ limit: 2 }, { server: true }).then((p) => p.items),
+    ]);
+  } catch {
+    /* homepage still renders without the dynamic rails */
+  }
+
+  const hero = featured[0];
+  const rail = featured.length ? featured : [];
+  const vaultPreview = posts;
 
   return (
     <>
@@ -27,70 +37,81 @@ export default function HomePage() {
 
       <div className="relative z-10 bg-surface">
         {/* ── FEATURED ── */}
-        <section className="px-[var(--gutter)] pb-24 pt-16 md:pb-32 md:pt-20">
-          <Reveal className="mb-10 flex items-end justify-between">
-            <span className="eyebrow">Featured Release</span>
-            <span className="text-[11px] uppercase tracking-[0.2em] text-text-muted">01 / 05</span>
-          </Reveal>
+        {hero && (
+          <section className="px-[var(--gutter)] pb-24 pt-16 md:pb-32 md:pt-20">
+            <Reveal className="mb-10 flex items-end justify-between">
+              <span className="eyebrow">Featured Release</span>
+              <span className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                01 / {String(Math.max(rail.length, 1)).padStart(2, "0")}
+              </span>
+            </Reveal>
 
-          <Reveal delay={0.08}>
-            <Link
-              href="/games"
-              className="group card-surface relative block aspect-[16/11] w-full overflow-hidden rounded-2xl md:aspect-[21/9]"
-            >
-              <div
-                className="absolute inset-0"
-                style={{ background: "linear-gradient(135deg, #0d0b1f 0%, #16213e 45%, #0f3460 100%)" }}
-              />
-              <Image
-                src="/images/cyber-runner.jpg"
-                alt="Cyber Runner"
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover opacity-95 transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/5" />
-
-              <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-16">
-                <span className="mb-3 inline-flex w-fit items-center gap-2 text-[10px] font-medium uppercase tracking-[0.3em] text-accent-cyan">
-                  <span className="h-1 w-1 rounded-full bg-accent-cyan" />
-                  Action · Endless Runner · Browser
-                </span>
-                <h2 className="display text-5xl text-white sm:text-7xl md:text-8xl">CYBER RUNNER</h2>
-                <p className="mt-4 max-w-md text-sm leading-relaxed text-text-secondary md:text-base">
-                  Dash through neon-lit cityscapes in the endless runner that defined a
-                  generation of browser play.
-                </p>
-                <span className="mt-8 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-white">
-                  Play now
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-                </span>
-              </div>
-            </Link>
-          </Reveal>
-        </section>
+            <Reveal delay={0.08}>
+              <Link
+                href={`/games/${hero.slug}`}
+                className="group card-surface relative block aspect-[16/11] w-full overflow-hidden rounded-2xl md:aspect-[21/9]"
+              >
+                <div className="absolute inset-0" style={{ background: hero.gradient }} />
+                <Image
+                  src={hero.banner || hero.thumbnail || FALLBACK_IMAGE}
+                  alt={hero.title}
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover opacity-95 transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/5" />
+                <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-16">
+                  <span className="mb-3 inline-flex w-fit items-center gap-2 text-[10px] font-medium uppercase tracking-[0.3em] text-accent-cyan">
+                    <span className="h-1 w-1 rounded-full bg-accent-cyan" />
+                    {(hero.genre || hero.category)} · {hero.platform || "Browser"}
+                  </span>
+                  <h2 className="display text-5xl text-white sm:text-7xl md:text-8xl">
+                    {hero.title}
+                  </h2>
+                  <p className="mt-4 max-w-md text-sm leading-relaxed text-text-secondary md:text-base">
+                    {hero.tagline || hero.shortDescription}
+                  </p>
+                  <span className="mt-8 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-white">
+                    Play now
+                    <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+                  </span>
+                </div>
+              </Link>
+            </Reveal>
+          </section>
+        )}
 
         {/* ── DISCOVER RAIL ── */}
-        <section className="py-24 md:py-36">
-          <Reveal className="mb-12 px-[var(--gutter)]">
-            <span className="eyebrow">The Showcase</span>
-            <h2 className="display mt-4 text-4xl text-white md:text-6xl">DISCOVER</h2>
-            <p className="mt-3 max-w-sm text-sm text-text-secondary">
-              Five worlds. One tab. Drag to explore the lineup.
-            </p>
-          </Reveal>
+        {rail.length > 0 && (
+          <section className="py-24 md:py-36">
+            <Reveal className="mb-12 px-[var(--gutter)]">
+              <span className="eyebrow">The Showcase</span>
+              <h2 className="display mt-4 text-4xl text-white md:text-6xl">DISCOVER</h2>
+              <p className="mt-3 max-w-sm text-sm text-text-secondary">
+                Featured worlds. One tab. Drag to explore the lineup.
+              </p>
+            </Reveal>
 
-          <div className="px-[var(--gutter)]">
-            <HorizontalScroll>
-              {discoverGames.map((game) => (
-                <div key={game.title} className="w-[78vw] shrink-0 snap-start sm:w-[340px]">
-                  <GameCoverCard {...game} />
-                </div>
-              ))}
-            </HorizontalScroll>
-          </div>
-        </section>
+            <div className="px-[var(--gutter)]">
+              <HorizontalScroll>
+                {rail.map((game, i) => (
+                  <div key={game.id} className="w-[78vw] shrink-0 snap-start sm:w-[340px]">
+                    <GameCoverCard
+                      index={String(i + 1).padStart(2, "0")}
+                      title={game.title}
+                      genre={game.genre || game.category}
+                      tagline={game.tagline || game.shortDescription}
+                      image={game.image || game.thumbnail || FALLBACK_IMAGE}
+                      gradient={game.gradient}
+                      href={`/games/${game.slug}`}
+                    />
+                  </div>
+                ))}
+              </HorizontalScroll>
+            </div>
+          </section>
+        )}
 
         {/* ── PLAYING NOW ── */}
         <section className="border-y border-border/60 px-[var(--gutter)] py-24 md:py-32">
@@ -122,60 +143,64 @@ export default function HomePage() {
         </section>
       </div>
 
-      {/* ── STUDIO ── (own opaque backdrop) */}
+      {/* ── STUDIO ── */}
       <StudioSection />
 
       {/* ── THE VAULT PREVIEW + CTA + FOOTER ── */}
       <div className="relative z-10 bg-surface">
-        <section className="px-[var(--gutter)] py-24 md:py-36">
-          <Reveal className="mb-12 flex items-end justify-between">
-            <div>
-              <span className="eyebrow">Editorial</span>
-              <h2 className="display mt-4 text-4xl text-white md:text-6xl">THE VAULT</h2>
-            </div>
-            <Link
-              href="/vault"
-              className="group hidden items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-text-secondary transition-colors hover:text-white sm:inline-flex"
-            >
-              All stories
-              <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-            </Link>
-          </Reveal>
+        {vaultPreview.length > 0 && (
+          <section className="px-[var(--gutter)] py-24 md:py-36">
+            <Reveal className="mb-12 flex items-end justify-between">
+              <div>
+                <span className="eyebrow">Editorial</span>
+                <h2 className="display mt-4 text-4xl text-white md:text-6xl">THE VAULT</h2>
+              </div>
+              <Link
+                href="/vault"
+                className="group hidden items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-text-secondary transition-colors hover:text-white sm:inline-flex"
+              >
+                All stories
+                <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+              </Link>
+            </Reveal>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {vaultPreview.map((article, i) => (
-              <Reveal key={article.slug} delay={0.08 + i * 0.08}>
-                <Link
-                  href={`/vault/${article.slug}`}
-                  className="group card-surface relative block overflow-hidden rounded-2xl"
-                >
-                  <div className="relative aspect-[16/10] w-full overflow-hidden">
-                    <div className="absolute inset-0" style={{ background: article.heroGradient }} />
-                    <Image
-                      src={article.heroImage}
-                      alt={article.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      className="object-cover opacity-85 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 p-8">
-                    <span className="mb-2 inline-block text-[10px] font-medium tracking-[0.25em] text-accent-cyan">
-                      {article.category}
-                    </span>
-                    <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold tracking-tight text-white md:text-2xl">
-                      {article.title}
-                    </h3>
-                    <span className="mt-3 inline-block text-xs tracking-widest text-text-muted">
-                      {article.readTime}
-                    </span>
-                  </div>
-                </Link>
-              </Reveal>
-            ))}
-          </div>
-        </section>
+            <div className="grid gap-6 md:grid-cols-2">
+              {vaultPreview.map((article, i) => (
+                <Reveal key={article.slug} delay={0.08 + i * 0.08}>
+                  <Link
+                    href={`/vault/${article.slug}`}
+                    className="group card-surface relative block overflow-hidden rounded-2xl"
+                  >
+                    <div className="relative aspect-[16/10] w-full overflow-hidden">
+                      <div className="absolute inset-0" style={{ background: article.heroGradient }} />
+                      {article.heroImage && (
+                        <Image
+                          src={article.heroImage}
+                          alt={article.title}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          className="object-cover opacity-85 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 p-8">
+                      <span className="mb-2 inline-block text-[10px] font-medium tracking-[0.25em] text-accent-cyan">
+                        {article.category}
+                      </span>
+                      <h3 className="font-[family-name:var(--font-heading)] text-xl font-bold tracking-tight text-white md:text-2xl">
+                        {article.title}
+                      </h3>
+                      <span className="mt-3 inline-block text-xs tracking-widest text-text-muted">
+                        {article.readTime}
+                      </span>
+                    </div>
+                  </Link>
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── CTA ── */}
         <section className="relative overflow-hidden border-t border-border/60 px-[var(--gutter)] py-32 text-center md:py-44">
@@ -210,8 +235,8 @@ export default function HomePage() {
             </span>
             <nav className="flex items-center gap-8 text-[11px] font-medium uppercase tracking-[0.2em] text-text-secondary">
               <Link href="/games" className="transition-colors hover:text-white">Games</Link>
+              <Link href="/leaderboard" className="transition-colors hover:text-white">Leaderboard</Link>
               <Link href="/vault" className="transition-colors hover:text-white">The Vault</Link>
-              <Link href="/#studio" className="transition-colors hover:text-white">Studio</Link>
               <Link href="/login" className="transition-colors hover:text-white">Sign In</Link>
             </nav>
             <p className="text-xs text-text-muted">&copy; 2026 NeonArcade</p>

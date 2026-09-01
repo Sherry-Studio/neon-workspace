@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertCircle, CheckCircle } from "lucide-react";
@@ -20,10 +21,18 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    console.log("Submitting signup form with:", { username, password, confirmPassword, avatar });
+    if (loading) return;
     setError("");
     setSuccess("");
 
+    if (username.trim().length < 3) {
+      setError("Username must be at least 3 characters");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -35,19 +44,36 @@ export default function SignupPage() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, avatar }),
+        body: JSON.stringify({ username: username.trim(), password, avatar }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data.error || "Something went wrong");
+        setError(
+          data.error ||
+            (res.status === 409
+              ? "That username is already taken."
+              : "Could not create your account."),
+        );
+        return;
+      }
+
+      setSuccess("Account created! Signing you in…");
+      const result = await signIn("credentials", {
+        identifier: username.trim(),
+        password,
+        redirect: false,
+      });
+      if (result?.error) {
+        // Account exists but auto sign-in failed — send them to login.
+        router.push("/login");
       } else {
-        setSuccess("Account created! Redirecting to sign in…");
-        setTimeout(() => router.push("/login"), 1500);
+        router.push("/profile");
+        router.refresh();
       }
     } catch {
-      setError("Something went wrong");
+      setError("Couldn't reach the server. Please try again.");
     } finally {
       setLoading(false);
     }

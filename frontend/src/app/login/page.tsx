@@ -9,31 +9,32 @@ import { AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setError("");
     setLoading(true);
 
     try {
       const result = await signIn("credentials", {
-        username,
+        identifier,
         password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError("Invalid username or password");
+        setError("Incorrect username or password. Please try again.");
       } else {
         router.push("/profile");
         router.refresh();
       }
     } catch {
-      setError("Something went wrong");
+      setError("Couldn't reach the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -84,15 +85,16 @@ export default function LoginPage() {
             transition={{ delay: 0.1 }}
           >
             <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted">
-              Username
+              Username or email
             </label>
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
+              autoComplete="username"
               className="w-full border border-border bg-surface-elevated px-4 py-3.5 text-white placeholder-text-muted transition-colors duration-200 focus:border-white/60 focus:outline-none"
-              placeholder="Enter your username"
+              placeholder="Enter your username or email"
             />
           </motion.div>
 
