@@ -78,6 +78,35 @@ git-ignored — only the `.env.example` templates are committed.
 - **admin** — `admin/.env.example`: `NEXT_PUBLIC_API_BASE_URL` (points at the
   admin's own `/api/admin` proxy), `BACKEND_INTERNAL_URL`, `ADMIN_SESSION_SECRET`.
 
+## Firebase
+
+**Firebase is not currently required and is not installed.** In-app
+notifications work end to end without it (admin → backend → the user's
+notification bell).
+
+The only justified future use is **web push (FCM)**. The backend already has the
+scaffolding for it — `DeviceToken` model, `push.service.ts`, device
+register/unregister routes, and `FCM_ENABLED` / `FIREBASE_*` env vars. To turn it
+on later:
+
+1. Backend: `npm i firebase-admin`, fill `FIREBASE_PROJECT_ID`,
+   `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (service account — **never**
+   commit these), set `FCM_ENABLED=true`, and un-stub the two marked lines in
+   `backend/src/services/push.service.ts`.
+2. Frontend: `npm i firebase`, fill the `NEXT_PUBLIC_FIREBASE_*` vars (public
+   web-app config), add a service worker, request notification permission, and
+   POST the token to `/api/backend/notifications/devices`.
+3. Firebase console: enable Cloud Messaging and generate a Web Push (VAPID) key.
+
+The Firebase Admin credentials stay on the backend only; the frontend gets just
+the public web config.
+
+## Known issues
+
+- The homepage logs a React hydration warning in dev caused by the Google
+  AdSense script (`layout.tsx`) injecting into `<head>`. It's cosmetic and
+  predates this integration; remove the AdSense `<Script>` if you don't need ads.
+
 ## How auth works
 
 - **Website users** sign up / log in through the backend (`/api/auth/*`).
