@@ -10,6 +10,7 @@ import { Blog } from '../models/Blog';
 import { Notification } from '../models/Notification';
 import { BlogCategory, GameCategory } from '../types';
 import { isFcmEnabled } from '../services/push.service';
+import { containsInsensitive, escapeRegex } from '../utils/escapeRegex';
 
 const dayKey = { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } } as const;
 const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 3600_000);
@@ -215,7 +216,7 @@ export const notificationHistory = asyncHandler(async (req: Request, res: Respon
   const limit = Math.min(100, Number(req.query.limit) || 20);
   const filter: Record<string, unknown> = {};
   if (req.query.type) filter.type = req.query.type;
-  if (req.query.search) filter.title = { $regex: String(req.query.search), $options: 'i' };
+  if (req.query.search) filter.title = containsInsensitive(String(req.query.search));
 
   const [rows, total] = await Promise.all([
     Notification.find(filter)
@@ -341,7 +342,7 @@ export const adminSearch = asyncHandler(async (req: Request, res: Response) => {
     sendSuccess(res, { users: [], games: [], blog: [], scores: [] }, 'Search');
     return;
   }
-  const rx = { $regex: q, $options: 'i' };
+  const rx = { $regex: escapeRegex(q), $options: 'i' as const };
   const [users, games, blog] = await Promise.all([
     User.find({ $or: [{ username: rx }, { email: rx }] }).limit(5),
     Game.find({ title: rx }).limit(5),

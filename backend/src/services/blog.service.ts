@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError';
 import { slugify, uniqueSlug } from '../utils/slugify';
 import { buildPaginated, buildSort } from '../utils/pagination';
 import { BlogStatus, type ListQuery } from '../types';
+import { containsInsensitive } from '../utils/escapeRegex';
 
 const slugTaken = (slug: string, exceptId?: string) =>
   Blog.exists({ slug, ...(exceptId ? { _id: { $ne: exceptId } } : {}) }).then(Boolean);
@@ -38,7 +39,7 @@ export async function adminListPosts(q: ListQuery) {
   const filter: Record<string, unknown> = {};
   if (q.status) filter.status = q.status.toUpperCase();
   if (q.category) filter.category = q.category;
-  if (q.search) filter.title = { $regex: q.search, $options: 'i' };
+  if (q.search) filter.title = containsInsensitive(q.search);
   const [docs, total] = await Promise.all([
     Blog.find(filter)
       .sort(buildSort(q.sort, { createdAt: -1 }))

@@ -5,6 +5,7 @@ import { ApiError } from '../utils/ApiError';
 import { buildPaginated, buildSort } from '../utils/pagination';
 import type { ListQuery } from '../types';
 import { isValidAvatarId } from '../utils/avatars';
+import { containsInsensitive } from '../utils/escapeRegex';
 
 export async function getSelf(userId: string) {
   const user = await User.findById(userId);
@@ -95,10 +96,8 @@ export async function getSelfAchievements(userId: string) {
 export async function adminListUsers(q: ListQuery) {
   const filter: Record<string, unknown> = {};
   if (q.search) {
-    filter.$or = [
-      { username: { $regex: q.search, $options: 'i' } },
-      { email: { $regex: q.search, $options: 'i' } },
-    ];
+    const rx = containsInsensitive(q.search);
+    filter.$or = [{ username: rx }, { email: rx }];
   }
   const status = q.status?.toLowerCase();
   if (status === 'active') filter.isActive = true;

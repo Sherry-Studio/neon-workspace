@@ -9,6 +9,7 @@ import { recordAudit } from '../services/audit.service';
 import { AuditLog } from '../models/AuditLog';
 import { ApiError } from '../utils/ApiError';
 import { Role } from '../types';
+import { containsInsensitive } from '../utils/escapeRegex';
 
 // ── Users ──────────────────────────────────────────────────────────────────
 
@@ -152,7 +153,7 @@ export const analyticsScores = asyncHandler(async (_req: Request, res: Response)
 export const listAuditLogs = asyncHandler(async (req: Request, res: Response) => {
   const q = parseListQuery(req);
   const filter: Record<string, unknown> = {};
-  if (q.search) filter.action = { $regex: q.search, $options: 'i' };
+  if (q.search) filter.action = containsInsensitive(q.search);
   const [items, total] = await Promise.all([
     AuditLog.find(filter)
       .sort({ createdAt: -1 })

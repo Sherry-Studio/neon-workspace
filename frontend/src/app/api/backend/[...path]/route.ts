@@ -33,7 +33,25 @@ function allowed(path: string) {
   return ALLOW_PREFIXES.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p + "?"));
 }
 
+/** Reject cross-site mutating requests (defence-in-depth against CSRF). */
+function sameOrigin(req: NextRequest): boolean {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return true;
+  const origin = req.headers.get("origin");
+  if (!origin) return true; // same-origin fetches from RSC/route handlers omit Origin
+  try {
+    return new URL(origin).host === req.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
 async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
+  if (!sameOrigin(req)) {
+    return NextResponse.json(
+      { success: false, message: "Cross-origin request refused.", errors: [] },
+      { status: 403 },
+    );
+  }
   const session = await auth();
   if (!session?.accessToken) {
     return NextResponse.json(

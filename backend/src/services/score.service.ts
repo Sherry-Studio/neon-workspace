@@ -6,6 +6,7 @@ import { User } from '../models/User';
 import { ApiError } from '../utils/ApiError';
 import { buildPaginated, buildSort } from '../utils/pagination';
 import { GameStatus, type ListQuery } from '../types';
+import { containsInsensitive } from '../utils/escapeRegex';
 import { evaluateForUser } from './achievement.service';
 import { logger } from '../config/logger';
 
@@ -228,7 +229,7 @@ export async function adminListScores(q: ListQuery & { gameId?: string; userId?:
 
   let userIds: Types.ObjectId[] | undefined;
   if (q.search) {
-    userIds = await User.find({ username: { $regex: q.search, $options: 'i' } }).distinct('_id');
+    userIds = await User.find({ username: containsInsensitive(q.search) }).distinct('_id');
     filter.userId = { $in: userIds };
   }
 
