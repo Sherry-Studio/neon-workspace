@@ -7,6 +7,7 @@ import AuthProvider from "@/components/AuthProvider";
 import SmoothScroll from "@/components/SmoothScroll";
 import ThemeProvider from "@/components/ThemeProvider";
 import CustomCursor from "@/components/ui/CustomCursor";
+import Toaster from "@/components/ui/Toaster";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-heading",
@@ -58,6 +59,7 @@ export default function RootLayout({
           <div className="noise-overlay" />
           <Navbar />
           <main className="relative z-10 flex-1">{children}</main>
+          <Toaster />
         </AuthProvider>
         </ThemeProvider>
       </body>

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Pencil, X, Gamepad2, Trophy, Star } from "lucide-react";
+import { toast } from "sonner";
+import { Pencil, X, Gamepad2, Trophy, Star, Check } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import { AVATARS, DEFAULT_AVATAR_ID, getAvatar } from "@/lib/avatars";
 import type { ProfileStats } from "@/types/api";
@@ -40,7 +41,6 @@ export default function ProfilePage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
-  const [toast, setToast] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -80,8 +80,7 @@ export default function ProfilePage() {
   }, [status]);
 
   function flash(message: string) {
-    setToast(message);
-    setTimeout(() => setToast(""), 2200);
+    toast.success(message);
   }
 
   async function selectAvatar(id: string) {
@@ -106,6 +105,7 @@ export default function ProfilePage() {
     } catch {
       setAvatar(previous);
       setError("Could not update avatar. Try again.");
+      toast.error("Could not update avatar.");
     } finally {
       setSaving(false);
     }
@@ -157,21 +157,6 @@ export default function ProfilePage() {
 
   return (
     <div className="relative z-10 mx-auto max-w-4xl px-6 pb-20 pt-28 sm:px-10">
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 border border-accent-green/30 bg-surface-elevated px-4 py-2.5 text-sm text-accent-green shadow-lg"
-          >
-            <Check size={15} />
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── Header ── */}
       <div className="flex flex-col items-center text-center">
         <div className="relative">

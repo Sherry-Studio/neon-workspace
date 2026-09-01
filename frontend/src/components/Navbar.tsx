@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogIn } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
+import { toast } from "sonner";
 import Avatar from "@/components/ui/Avatar";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
@@ -91,7 +92,10 @@ export default function Navbar() {
                   {session.user?.name}
                 </Link>
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={() => {
+                    toast.success("Signed out.");
+                    signOut({ callbackUrl: "/" });
+                  }}
                   className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted transition-colors hover:text-text-primary"
                 >
                   Logout

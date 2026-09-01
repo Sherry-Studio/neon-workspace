@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -29,12 +30,15 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError("Incorrect username or password. Please try again.");
+        toast.error("Incorrect username or password.");
       } else {
+        toast.success("Signed in — welcome back.");
         router.push("/profile");
         router.refresh();
       }
     } catch {
       setError("Couldn't reach the server. Please try again.");
+      toast.error("Couldn't reach the server. Please try again.");
     } finally {
       setLoading(false);
     }

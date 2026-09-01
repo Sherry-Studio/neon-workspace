@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertCircle, CheckCircle } from "lucide-react";
@@ -50,12 +51,13 @@ export default function SignupPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(
+        const msg =
           data.error ||
-            (res.status === 409
-              ? "That username is already taken."
-              : "Could not create your account."),
-        );
+          (res.status === 409
+            ? "That username is already taken."
+            : "Could not create your account.");
+        setError(msg);
+        toast.error(msg);
         return;
       }
 
@@ -67,13 +69,16 @@ export default function SignupPage() {
       });
       if (result?.error) {
         // Account exists but auto sign-in failed — send them to login.
+        toast.success("Account created — please sign in.");
         router.push("/login");
       } else {
+        toast.success("Welcome to NeonArcade!");
         router.push("/profile");
         router.refresh();
       }
     } catch {
       setError("Couldn't reach the server. Please try again.");
+      toast.error("Couldn't reach the server. Please try again.");
     } finally {
       setLoading(false);
     }

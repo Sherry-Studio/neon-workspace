@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Trophy, AlertCircle, Loader2 } from "lucide-react";
@@ -82,11 +83,17 @@ export default function GamePlayer({ game }: { game: Game }) {
         });
         setResult({ score, flagged: !!res.flagged });
         setPhase("done");
+        if (res.flagged) {
+          toast.warning("Score flagged for review.");
+        } else {
+          toast.success(`Score saved: ${score.toLocaleString()}`);
+        }
       } catch (e) {
-        setError(
-          e instanceof ApiError ? e.message : "Could not save your score.",
-        );
+        const msg =
+          e instanceof ApiError ? e.message : "Could not save your score.";
+        setError(msg);
         setPhase("error");
+        toast.error(msg);
       }
     },
     [game.id, isAuthed],
