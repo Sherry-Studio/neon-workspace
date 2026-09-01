@@ -21,7 +21,15 @@
     }
   },
   "rewrites": [
-    { "source": "/api/auth/(.*)", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/signin(.*)", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/signout(.*)", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/callback/(.*)", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/session", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/csrf", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/providers", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/error", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/verify-request", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/signup", "destination": { "service": "frontend" } },
     { "source": "/api/profile", "destination": { "service": "frontend" } },
     { "source": "/api/gateway/(.*)", "destination": { "service": "frontend" } },
     { "source": "/api/(.*)", "destination": { "service": "backend" } },

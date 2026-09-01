@@ -17,19 +17,32 @@ interface Resolved {
   accessToken: string;
 }
 
+class BackendUnavailable extends Error {}
+
 async function resolveUser(email: string, password: string): Promise<Resolved | null> {
-  const res = await fetch(`${BACKEND}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // The backend accepts `identifier` (username OR email) or `email`.
-    body: JSON.stringify({ identifier: email, email, password }),
-  });
-  if (!res.ok) return null;
+  let res: Response;
+  try {
+    res = await fetch(`${BACKEND}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // The backend accepts `identifier` (username OR email) or `email`.
+      body: JSON.stringify({ identifier: email, email, password }),
+    });
+  } catch {
+    throw new BackendUnavailable(`Could not reach the backend at ${BACKEND}`);
+  }
+
+  if (res.status === 401 || res.status === 403 || res.status === 400) return null;
+  if (!res.ok) {
+    throw new BackendUnavailable(`Backend returned ${res.status} for /auth/login`);
+  }
 
   const json = await res.json().catch(() => null);
   const u = json?.data?.user ?? json?.user ?? json?.data;
   const accessToken = json?.data?.accessToken ?? json?.accessToken;
-  if (!u?.role || !accessToken) return null;
+  if (!u?.role || !accessToken) {
+    throw new BackendUnavailable("Backend login response was not in the expected shape");
+  }
 
   return {
     accessToken,
@@ -64,9 +77,12 @@ export async function POST(req: Request) {
   let resolved: Resolved | null;
   try {
     resolved = await resolveUser(email, password);
-  } catch {
+  } catch (err) {
     return NextResponse.json(
-      { message: "Could not reach the authentication service." },
+      {
+        message: "Could not reach the authentication service.",
+        detail: err instanceof Error ? err.message : undefined,
+      },
       { status: 502 },
     );
   }
