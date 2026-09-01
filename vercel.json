@@ -16,14 +16,15 @@
     "backend": {
       "root": "backend",
       "framework": "express",
-      "entrypoint": "src/server.ts"
+      "entrypoint": "src/server.ts",
+      "buildCommand": "echo 'skip build — @vercel/node bundles src/server.ts directly'"
     }
   },
   "rewrites": [
-    { "source": "/api/auth/:path*", "destination": { "service": "frontend" } },
+    { "source": "/api/auth/(.*)", "destination": { "service": "frontend" } },
     { "source": "/api/profile", "destination": { "service": "frontend" } },
-    { "source": "/api/gateway/:path*", "destination": { "service": "frontend" } },
-    { "source": "/api/:path*", "destination": { "service": "backend" } },
-    { "source": "/:path*", "destination": { "service": "frontend" } }
+    { "source": "/api/gateway/(.*)", "destination": { "service": "frontend" } },
+    { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
   ]
 }
