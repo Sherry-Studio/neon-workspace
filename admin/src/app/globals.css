@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #05060a;
+  --color-ink-900: #0a0c12;
+  --color-ink-850: #0e1119;
+  --color-ink-800: #131722;
+  --color-ink-750: #1a1f2e;
+  --color-ink-700: #232a3d;
+  --color-ink-600: #333c54;
+
+  --color-cyan-glow: #22d3ee;
+  --color-cyan-soft: #67e8f9;
+  --color-magenta-glow: #d946ef;
+  --color-violet-glow: #8b5cf6;
+
+  --color-line: rgba(103, 232, 249, 0.12);
+  --color-line-strong: rgba(103, 232, 249, 0.28);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-ink-950);
+  color: #e5e9f0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image:
+    radial-gradient(60rem 60rem at 12% -10%, rgba(34, 211, 238, 0.06), transparent 60%),
+    radial-gradient(50rem 50rem at 100% 0%, rgba(217, 70, 239, 0.05), transparent 55%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.3);
+}
+
+/* Thin, quiet scrollbars for a control-panel feel */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-700) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 999px;
+}
+
+@utility panel {
+  background: linear-gradient(180deg, rgba(19, 23, 34, 0.9), rgba(14, 17, 25, 0.9));
+  border: 1px solid var(--color-line);
+  border-radius: 0.9rem;
+  backdrop-filter: blur(6px);
+}
+
+@utility glow-cyan {
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), 0 0 28px -6px rgba(34, 211, 238, 0.35);
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-ink-800);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: shimmer 1.6s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
