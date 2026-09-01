@@ -55,7 +55,13 @@ export const unregisterDevice = asyncHandler(async (req: Request, res: Response)
 // ── Admin ──────────────────────────────────────────────────────────────────
 
 export const adminSend = asyncHandler(async (req: Request, res: Response) => {
-  const { title, message, type, metadata, target, userId, userIds, push } = req.body;
+  const { title, message, type, target, userId, userIds, push, link, gameId, blogId } = req.body;
+  const metadata = {
+    ...(req.body.metadata ?? {}),
+    ...(link ? { link } : {}),
+    ...(gameId ? { gameId } : {}),
+    ...(blogId ? { blogId } : {}),
+  };
   let result: { count: number };
   if (target === 'user') {
     await notificationService.notifyUser(userId, { title, message, type, metadata, createdBy: req.user!.id, push });

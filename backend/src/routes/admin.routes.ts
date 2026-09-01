@@ -5,6 +5,8 @@ import * as blog from '../controllers/blog.controller';
 import * as score from '../controllers/score.controller';
 import * as notification from '../controllers/notification.controller';
 import * as upload from '../controllers/upload.controller';
+import * as extras from '../controllers/adminExtras.controller';
+import { uploadImage } from '../middleware/upload';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { idParam } from '../validators/common.validators';
@@ -32,9 +34,15 @@ const router = Router();
 // Every admin route requires an authenticated ADMIN or SUPER_ADMIN.
 router.use(requireAuth, requireAdmin);
 
+// ── Dashboard & analytics (admin panel aggregates) ──
+router.get('/dashboard', extras.dashboard);
+router.get('/analytics', extras.analytics);
+
 // ── Users ──
 router.get('/users', admin.listUsers);
 router.get('/users/:id', validate({ params: idParam }), admin.getUser);
+router.get('/users/:id/scores', validate({ params: idParam }), extras.userScores);
+router.get('/users/:id/notifications', validate({ params: idParam }), extras.userNotifications);
 router.put('/users/:id', validate({ params: idParam, body: adminUpdateUserSchema }), admin.updateUser);
 router.patch('/users/:id/suspend', validate({ params: idParam }), admin.suspendUser);
 router.patch('/users/:id/activate', validate({ params: idParam }), admin.activateUser);
@@ -77,6 +85,9 @@ router.delete('/achievements/:id', validate({ params: idParam }), admin.deleteAc
 router.post('/achievements/grant', validate({ body: grantAchievementSchema }), admin.grantAchievement);
 
 // ── Notifications ──
+router.get('/notifications', extras.notificationHistory);
+router.get('/notifications/push-status', extras.pushStatus);
+router.post('/notifications/audience-count', extras.audienceCount);
 router.post('/notifications', validate({ body: adminSendNotificationSchema }), notification.adminSend);
 
 // ── Analytics ──
@@ -88,5 +99,6 @@ router.get('/analytics/scores', admin.analyticsScores);
 // ── Audit log & uploads ──
 router.get('/audit-logs', admin.listAuditLogs);
 router.post('/uploads/sign', upload.signUpload);
+router.post('/uploads', uploadImage, upload.uploadDirect);
 
 export default router;

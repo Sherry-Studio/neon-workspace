@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -46,6 +47,16 @@ export function createApp(): Express {
       }),
     );
   }
+
+  // Locally-stored uploads (STORAGE_PROVIDER=local). In production images are
+  // served from Cloudinary/S3 and this route simply serves nothing.
+  app.use(
+    '/uploads',
+    express.static(path.resolve(process.cwd(), 'uploads'), {
+      maxAge: '7d',
+      fallthrough: true,
+    }),
+  );
 
   app.use('/api', globalLimiter);
 

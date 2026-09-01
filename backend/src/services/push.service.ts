@@ -11,6 +11,16 @@ import { DeviceToken } from '../models/DeviceToken';
 
 let initialized = false;
 
+/** Whether push delivery is configured and enabled. */
+export function isFcmEnabled(): boolean {
+  return Boolean(
+    env.FCM_ENABLED &&
+      env.FIREBASE_PROJECT_ID &&
+      env.FIREBASE_CLIENT_EMAIL &&
+      env.FIREBASE_PRIVATE_KEY,
+  );
+}
+
 function ensureInit(): boolean {
   if (!env.FCM_ENABLED) return false;
   if (initialized) return true;

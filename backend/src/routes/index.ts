@@ -8,6 +8,7 @@ import blogRoutes from './blog.routes';
 import notificationRoutes from './notification.routes';
 import adminRoutes from './admin.routes';
 import * as userCtrl from '../controllers/user.controller';
+import * as extras from '../controllers/adminExtras.controller';
 import { Game } from '../models/Game';
 import { mongoStateName } from '../utils/health';
 
@@ -38,6 +39,9 @@ router.get('/stats/public', async (_req, res) => {
     data: { publishedGames: games, totalPlays: plays[0]?.total ?? 0 },
   });
 });
+
+router.get('/games/categories', extras.gameCategories);
+router.get('/blog/categories', extras.blogCategories);
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
