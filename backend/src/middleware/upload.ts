@@ -1,11 +1,8 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import multer from 'multer';
 import { ApiError } from '../utils/ApiError';
 
-const UPLOAD_ROOT = path.resolve(process.cwd(), 'uploads');
-const ALLOWED = new Set(['games', 'banners', 'blog', 'avatars']);
-const MIME_EXT: Record<string, string> = {
+export const ALLOWED_UPLOAD_FOLDERS = new Set(['games', 'banners', 'blog', 'avatars']);
+export const UPLOAD_MIME_EXT: Record<string, string> = {
   'image/png': '.png',
   'image/jpeg': '.jpg',
   'image/webp': '.webp',
@@ -13,26 +10,16 @@ const MIME_EXT: Record<string, string> = {
   'image/avif': '.avif',
 };
 
-const storage = multer.diskStorage({
-  destination(req, _file, cb) {
-    const folder = ALLOWED.has(String(req.query.folder)) ? String(req.query.folder) : 'games';
-    const dir = path.join(UPLOAD_ROOT, folder);
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename(_req, file, cb) {
-    const ext = MIME_EXT[file.mimetype] ?? path.extname(file.originalname) ?? '';
-    const safe = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-    cb(null, safe);
-  },
-});
-
-/** Single-image upload, max 5 MB, images only. Field name: `file`. */
+/**
+ * Single-image upload held in memory (max 5 MB, images only). The controller
+ * streams the buffer to the configured storage provider. Field name: `file`.
+ * Memory storage keeps this working on read-only filesystems (e.g. serverless).
+ */
 export const uploadImage = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   fileFilter(_req, file, cb) {
-    if (!MIME_EXT[file.mimetype]) {
+    if (!UPLOAD_MIME_EXT[file.mimetype]) {
       cb(new ApiError(400, 'Only PNG, JPEG, WebP, GIF or AVIF images are allowed'));
       return;
     }

@@ -78,6 +78,52 @@ git-ignored — only the `.env.example` templates are committed.
 - **admin** — `admin/.env.example`: `NEXT_PUBLIC_API_BASE_URL` (points at the
   admin's own `/api/admin` proxy), `BACKEND_INTERNAL_URL`, `ADMIN_SESSION_SECRET`.
 
+## Deploying to Vercel (one project, multiple services)
+
+The repo ships a root `vercel.json` using [Vercel Services](https://vercel.com/docs/services):
+`frontend/` and `backend/` deploy as two services on **one** project and one
+domain. Top-level rewrites send `/api/*` to the Express backend, except
+`/api/auth/*`, `/api/profile` and `/api/gateway/*`, which stay with Next.js.
+
+**Import the repo** with Application Preset = **Services**, Root Directory `./`.
+
+**Environment variables** (Project → Settings → Environment Variables — they are
+shared by both services):
+
+| Variable | Value | Used by |
+|---|---|---|
+| `MONGODB_URI` | your MongoDB Atlas connection string | backend (required) |
+| `JWT_ACCESS_SECRET` | `openssl rand -hex 48` | backend (required) |
+| `JWT_REFRESH_SECRET` | a different `openssl rand -hex 48` | backend (required) |
+| `AUTH_SECRET` | `openssl rand -hex 32` | frontend (required) |
+| `AUTH_TRUST_HOST` | `true` | frontend |
+| `STORAGE_PROVIDER` | `cloudinary` | backend (disk uploads don't work on serverless) |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | from your Cloudinary dashboard | backend (image uploads) |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | your choice | backend (seed script) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `EMAIL_FROM` | your SMTP provider | backend (password-reset emails; optional) |
+| `CORS_ORIGINS` | your custom domain(s), comma-separated | backend (only if using a custom domain — `*.vercel.app` is auto-allowed) |
+
+`NODE_ENV=production`, `VERCEL`, `VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL`
+are set by Vercel automatically. You do **not** need `NEXT_PUBLIC_API_BASE_URL`
+or `BACKEND_INTERNAL_URL` — the frontend talks to the backend on the same origin.
+
+**Seed the production database** (run locally, pointed at the prod DB):
+
+```bash
+MONGODB_URI="<prod uri>" SEED_ADMIN_EMAIL="you@x.com" SEED_ADMIN_PASSWORD="<pw>" \
+  SEED_DEMO_USERS=false npm --prefix backend run seed
+```
+
+**The admin panel deploys as a separate Vercel project** (Root Directory
+`admin`), because mounting a second Next.js app on a subpath needs its own
+`basePath`. Set on that project:
+
+| Variable | Value |
+|---|---|
+| `ADMIN_SESSION_SECRET` | `openssl rand -hex 48` |
+| `BACKEND_INTERNAL_URL` | `https://<your-services-project-domain>/api` |
+| `NEXT_PUBLIC_API_BASE_URL` | `/api/admin` |
+
 ## Firebase
 
 **Firebase is not currently required and is not installed.** In-app

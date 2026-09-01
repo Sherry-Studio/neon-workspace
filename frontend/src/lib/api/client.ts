@@ -5,16 +5,20 @@
  *   `{ success, message, data, meta }` envelope, throws `ApiError` on failure.
  * - Public reads (games, blog, leaderboard) can call the backend directly from
  *   the browser (`NEXT_PUBLIC_API_BASE_URL`, CORS-allowed).
- * - Authenticated calls go through the same-origin proxy at `/api/backend/*`,
+ * - Authenticated calls go through the same-origin proxy at `/api/gateway/*`,
  *   which injects the logged-in user's bearer token (see that route handler).
  */
 
-export const PUBLIC_API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost:4000/api";
+// Public reads from the browser. On Vercel the backend service answers `/api/*`
+// on the same origin, so a relative base works and avoids CORS. Locally this is
+// the absolute backend URL from the env.
+import { serverBackendBase } from "./backend-url";
 
-/** Same-origin proxy for authenticated user requests. */
-export const PROXY_BASE = "/api/backend";
+export const PUBLIC_API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "/api";
+
+/** Same-origin proxy for authenticated user requests (this app's route handler). */
+export const PROXY_BASE = "/api/gateway";
 
 export class ApiError extends Error {
   status: number;
@@ -69,8 +73,21 @@ interface Envelope<T> {
   errors?: { field?: string; message: string }[];
 }
 
+/**
+ * A relative base (e.g. "/api") only resolves in the browser. When the same
+ * call runs on the server (RSC, route handler) swap it for the absolute
+ * backend URL.
+ */
+function resolveBase(base?: string): string {
+  const b = base ?? PUBLIC_API_BASE;
+  if (b.startsWith("/") && typeof window === "undefined") {
+    return serverBackendBase();
+  }
+  return b;
+}
+
 export async function apiFetch<T>(path: string, opts: Options = {}): Promise<T> {
-  const base = opts.base ?? PUBLIC_API_BASE;
+  const base = resolveBase(opts.base);
   let res: Response;
   try {
     res = await fetch(buildUrl(base, path, opts.query), {
@@ -110,7 +127,7 @@ export async function apiFetchPage<T>(
   path: string,
   opts: Options = {},
 ): Promise<Page<T>> {
-  const base = opts.base ?? PUBLIC_API_BASE;
+  const base = resolveBase(opts.base);
   const res = await fetch(buildUrl(base, path, opts.query), {
     method: opts.method ?? "GET",
     headers: opts.body ? { "Content-Type": "application/json" } : undefined,

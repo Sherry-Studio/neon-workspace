@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidAvatarId, DEFAULT_AVATAR_ID } from "@/lib/avatars";
+import { serverBackendBase } from "@/lib/api/backend-url";
 
 /**
  * Proxies registration to the NEON ARCADE backend (`POST /auth/register`).
@@ -7,12 +8,6 @@ import { isValidAvatarId, DEFAULT_AVATAR_ID } from "@/lib/avatars";
  * user store. On success the client then calls next-auth `signIn()` with the
  * same credentials to establish the session.
  */
-
-const BACKEND = (
-  process.env.BACKEND_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://localhost:4000/api"
-).replace(/\/$/, "");
 
 export async function POST(request: Request) {
   let payload: { username?: string; email?: string; password?: string; avatar?: string };
@@ -37,7 +32,7 @@ export async function POST(request: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${BACKEND}/auth/register`, {
+    res = await fetch(`${serverBackendBase()}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

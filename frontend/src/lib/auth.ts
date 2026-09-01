@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { serverBackendBase } from "@/lib/api/backend-url";
 
 /**
  * The NEON ARCADE backend owns authentication (users live in MongoDB, it issues
@@ -9,17 +10,11 @@ import Credentials from "next-auth/providers/credentials";
  *     user + tokens.
  *   - the JWT callback stashes those tokens in the (encrypted, httpOnly) session
  *     cookie and transparently refreshes the access token when it expires.
- *   - the `/api/backend/*` proxy reads `session.accessToken` to call the backend
+ *   - the `/api/gateway/*` proxy reads `session.accessToken` to call the backend
  *     on the user's behalf.
  *
  * There is no local user store any more.
  */
-
-const BACKEND = (
-  process.env.BACKEND_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://localhost:4000/api"
-).replace(/\/$/, "");
 
 /** access tokens last 15m on the backend; refresh a little early */
 const ACCESS_TTL_MS = 14 * 60 * 1000;
@@ -33,7 +28,7 @@ interface BackendUser {
 }
 
 async function backendLogin(identifier: string, password: string) {
-  const res = await fetch(`${BACKEND}/auth/login`, {
+  const res = await fetch(`${serverBackendBase()}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ identifier, email: identifier, password }),
@@ -48,7 +43,7 @@ async function backendLogin(identifier: string, password: string) {
 }
 
 async function backendRefresh(refreshToken: string) {
-  const res = await fetch(`${BACKEND}/auth/refresh`, {
+  const res = await fetch(`${serverBackendBase()}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),

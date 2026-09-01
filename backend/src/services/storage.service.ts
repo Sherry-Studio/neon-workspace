@@ -1,10 +1,72 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
+import { ApiError } from '../utils/ApiError';
 
 export interface UploadResult {
   url: string;
   provider: string;
   key: string;
+}
+
+/**
+ * Stores an uploaded image buffer with the configured provider and returns its
+ * public URL. `local` writes to ./uploads (dev / single persistent host only);
+ * `cloudinary` streams the buffer to Cloudinary (works on serverless).
+ */
+export async function storeImageBuffer(
+  file: { buffer: Buffer; mimetype: string; originalname: string },
+  folder: string,
+): Promise<UploadResult> {
+  const ext =
+    ({
+      'image/png': '.png',
+      'image/jpeg': '.jpg',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'image/avif': '.avif',
+    } as Record<string, string>)[file.mimetype] ?? path.extname(file.originalname) ?? '';
+
+  if (env.STORAGE_PROVIDER === 'cloudinary') {
+    if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+      throw new ApiError(501, 'Image uploads are not configured (missing Cloudinary credentials)');
+    }
+    const { v2: cloudinary } = await import('cloudinary');
+    cloudinary.config({
+      cloud_name: env.CLOUDINARY_CLOUD_NAME,
+      api_key: env.CLOUDINARY_API_KEY,
+      api_secret: env.CLOUDINARY_API_SECRET,
+    });
+    const result = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          { folder: `neon-arcade/${folder}`, resource_type: 'image' },
+          (err, res) => (err || !res ? reject(err ?? new Error('upload failed')) : resolve(res)),
+        )
+        .end(file.buffer);
+    });
+    return { url: result.secure_url, key: result.public_id, provider: 'cloudinary' };
+  }
+
+  if (env.STORAGE_PROVIDER === 's3') {
+    throw new ApiError(501, 'S3 uploads are not implemented — use STORAGE_PROVIDER=cloudinary');
+  }
+
+  // local
+  const dir = path.resolve(process.cwd(), 'uploads', folder);
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    throw new ApiError(
+      501,
+      'Local uploads require a writable filesystem — set STORAGE_PROVIDER=cloudinary in production',
+    );
+  }
+  const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+  fs.writeFileSync(path.join(dir, name), file.buffer);
+  const base = env.STORAGE_PUBLIC_BASE_URL.replace(/\/$/, '');
+  return { url: `${base}/${folder}/${name}`, key: `${folder}/${name}`, provider: 'local' };
 }
 
 export interface SignedUpload {

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { serverBackendBase } from "@/lib/api/backend-url";
 
 /**
  * Same-origin proxy for authenticated user requests to the NEON ARCADE backend.
  *
- * Client components call `/api/backend/<path>`; this handler reads the logged-in
+ * Client components call `/api/gateway/<path>`; this handler reads the logged-in
  * user's access token from the session and forwards the request to the backend
  * with an `Authorization: Bearer` header. The backend's `{ success, data }`
  * envelope is passed straight through so `apiFetch` can unwrap it the same way
@@ -12,12 +13,6 @@ import { auth } from "@/lib/auth";
  *
  * Only a small allow-list of path prefixes is proxied.
  */
-
-const BACKEND = (
-  process.env.BACKEND_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://localhost:4000/api"
-).replace(/\/$/, "");
 
 const ALLOW_PREFIXES = [
   "auth/me",
@@ -78,7 +73,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
 
   let res: Response;
   try {
-    res = await fetch(`${BACKEND}/${sub}${search}`, {
+    res = await fetch(`${serverBackendBase()}/${sub}${search}`, {
       method,
       headers: {
         authorization: `Bearer ${session.accessToken}`,

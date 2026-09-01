@@ -2,8 +2,8 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
-import { getSignedUpload } from '../services/storage.service';
-import { env } from '../config/env';
+import { getSignedUpload, storeImageBuffer } from '../services/storage.service';
+import { ALLOWED_UPLOAD_FOLDERS } from '../middleware/upload';
 
 const signSchema = z.object({
   folder: z.enum(['games', 'banners', 'blog', 'avatars']).default('games'),
@@ -27,10 +27,12 @@ export const uploadDirect = asyncHandler(async (req: Request, res: Response) => 
     res.status(400).json({ success: false, message: 'No file received', errors: [] });
     return;
   }
-  const folder = ['games', 'banners', 'blog', 'avatars'].includes(String(req.query.folder))
+  const folder = ALLOWED_UPLOAD_FOLDERS.has(String(req.query.folder))
     ? String(req.query.folder)
     : 'games';
-  const base = env.STORAGE_PUBLIC_BASE_URL.replace(/\/$/, '');
-  const url = `${base}/${folder}/${file.filename}`;
-  sendSuccess(res, { url, provider: 'local', key: `${folder}/${file.filename}` }, 'Uploaded', 201);
+  const result = await storeImageBuffer(
+    { buffer: file.buffer, mimetype: file.mimetype, originalname: file.originalname },
+    folder,
+  );
+  sendSuccess(res, result, 'Uploaded', 201);
 });

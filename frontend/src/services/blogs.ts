@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchPage, type Page } from "@/lib/api/client";
+import { serverBackendBase } from "@/lib/api/backend-url";
 import type { BlogPost } from "@/types/api";
 
 export interface BlogListParams {
@@ -9,7 +10,7 @@ export interface BlogListParams {
   sort?: string;
 }
 
-const serverBase = () => process.env.BACKEND_INTERNAL_URL;
+const serverBase = () => serverBackendBase();
 
 export const blogsService = {
   list: (params: BlogListParams = {}, opts?: { server?: boolean }): Promise<Page<BlogPost>> =>

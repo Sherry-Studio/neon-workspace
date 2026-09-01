@@ -52,7 +52,7 @@ export default function ProfilePage() {
     let active = true;
     Promise.all([
       fetch("/api/profile").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/backend/scores/my?limit=5").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/gateway/scores/my?limit=5").then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([d, scores]) => {
         if (!active) return;

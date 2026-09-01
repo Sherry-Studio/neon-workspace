@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchPage, PROXY_BASE, type Page } from "@/lib/api/client";
+import { serverBackendBase } from "@/lib/api/backend-url";
 import type { Game } from "@/types/api";
 
 export interface GameListParams {
@@ -21,7 +22,7 @@ export const gamesService = {
 
   bySlug: (slug: string, opts?: { server?: boolean }): Promise<Game> =>
     apiFetch<{ game: Game }>(`/games/${slug}`, {
-      base: opts?.server ? process.env.BACKEND_INTERNAL_URL : undefined,
+      base: opts?.server ? serverBackendBase() : undefined,
     }).then((d) => d.game),
 
   byCategory: (category: string, params: GameListParams = {}): Promise<Page<Game>> =>

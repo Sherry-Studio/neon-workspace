@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isValidAvatarId, DEFAULT_AVATAR_ID } from "@/lib/avatars";
+import { serverBackendBase } from "@/lib/api/backend-url";
 
 /**
  * The authenticated user's own profile. Backed entirely by the backend
@@ -8,14 +9,8 @@ import { isValidAvatarId, DEFAULT_AVATAR_ID } from "@/lib/avatars";
  * doesn't need direct backend access.
  */
 
-const BACKEND = (
-  process.env.BACKEND_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://localhost:4000/api"
-).replace(/\/$/, "");
-
 async function backend(path: string, token: string, init?: RequestInit) {
-  const res = await fetch(`${BACKEND}${path}`, {
+  const res = await fetch(`${serverBackendBase()}${path}`, {
     ...init,
     headers: {
       authorization: `Bearer ${token}`,

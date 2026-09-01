@@ -1,5 +1,6 @@
 import path from 'node:path';
 import express, { type Express } from 'express';
+import mongoose from 'mongoose';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
@@ -15,6 +16,26 @@ import { globalLimiter } from './middleware/rateLimit';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import apiRoutes from './routes';
 import { ApiError } from './utils/ApiError';
+import { connectDatabase } from './config/database';
+
+/** Origin is allowed if whitelisted, or (on Vercel) any *.vercel.app domain. */
+function isAllowedOrigin(origin: string): boolean {
+  if (env.CORS_ORIGINS.includes(origin)) return true;
+  let host = '';
+  try {
+    host = new URL(origin).host;
+  } catch {
+    return false;
+  }
+  if (process.env.VERCEL && host.endsWith('.vercel.app')) return true;
+  if (
+    process.env.VERCEL_PROJECT_PRODUCTION_URL &&
+    host === process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ) {
+    return true;
+  }
+  return false;
+}
 
 export function createApp(): Express {
   const app = express();
@@ -27,8 +48,8 @@ export function createApp(): Express {
   app.use(
     cors({
       origin(origin, cb) {
-        // Allow same-origin / server-to-server (no Origin header) and whitelisted origins.
-        if (!origin || env.CORS_ORIGINS.includes(origin)) return cb(null, true);
+        // Allow same-origin / server-to-server (no Origin header) and allowed origins.
+        if (!origin || isAllowedOrigin(origin)) return cb(null, true);
         cb(new ApiError(403, `Origin ${origin} not allowed by CORS`));
       },
       credentials: true,
@@ -58,10 +79,19 @@ export function createApp(): Express {
     }),
   );
 
+  // Ensure a live DB connection before handling anything that needs one.
+  // Cheap after the first request (the connection is cached); in tests the
+  // connection is already open (readyState 1) so this is a no-op.
+  app.use((req, _res, next) => {
+    if (mongoose.connection.readyState === 1 || req.path === '/api/health') return next();
+    connectDatabase().then(() => next(), next);
+  });
+
   app.use('/api', globalLimiter);
 
   // API docs — enabled by default in dev; guard/disable in production via env.
-  if (env.SWAGGER_ENABLED) {
+  // swagger-ui-express relies on express.static, which is a no-op on Vercel.
+  if (env.SWAGGER_ENABLED && !process.env.VERCEL) {
     app.use(
       env.SWAGGER_ROUTE,
       swaggerUi.serve,
