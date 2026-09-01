@@ -1,4 +1,4 @@
-import type { Express } from 'express';
+import express from 'express';
 import { createApp } from './app';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { env } from './config/env';
@@ -7,7 +7,7 @@ import { logger } from './config/logger';
 // The Express app. On Vercel this module is imported as a serverless function
 // and the default export is used directly (see vercel.json → services.backend).
 // Locally (and on any long-running host) the block below binds a port.
-const app: Express = createApp();
+const app: express.Express = createApp();
 
 export default app;
 
