@@ -335,19 +335,19 @@ export default function NeonVoid() {
         return;
       }
       if (screen !== "playing") return;
-      if (["w", "a", "s", "d", "e", "r", " "].includes(k)) {
+      if (["w", "a", "s", "d", "q", "e", "r", "x", "shift", " "].includes(k)) {
         e.preventDefault();
         const en = eng();
         if (!en) return;
-        en.keys.add(k === " " ? " " : k);
+        en.keys.add(k);
         if (k === "r") { en.missileHeld = true; en.requestMissile(); }
       }
       if (k === "f2") setDebug((v) => !v);
     };
     const ku = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      eng()?.keys.delete(k === " " ? " " : k);
-      if (k === "r") eng()!.missileHeld = false;
+      eng()?.keys.delete(k);
+      if (k === "r") { const en = eng(); if (en) en.missileHeld = false; }
     };
     const mm = (e: MouseEvent) => {
       if (screen !== "playing" || !rootRef.current) return;

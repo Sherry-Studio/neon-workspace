@@ -112,11 +112,14 @@ export type EnvKey =
 
 export interface EnvDef {
   key: EnvKey;
-  fog: string;
+  fog: string; // scene background / fog colour (near-black)
+  fogDensity: number; // FogExp2 density — hides the far bound softly
   ambient: number;
   nebulaA: string;
   nebulaB: string;
   starTint: string;
+  planet: string; // distant planet surface colour
+  haze: string; // faint inner-sphere tint that gives the black some depth
   asteroids: number;
   meteors: boolean;
 }
@@ -265,6 +268,7 @@ export interface TargetInfo {
   hull: number;
   hullMax: number;
   distance: number;
+  lock: number; // 0..1 missile-lock progress
 }
 
 export interface BossHud {

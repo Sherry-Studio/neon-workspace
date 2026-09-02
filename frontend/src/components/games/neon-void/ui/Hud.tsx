@@ -134,27 +134,61 @@ export default function Hud({
         </div>
       )}
 
-      {/* Target lock */}
-      {s.target && (
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 translate-y-6 text-center">
-          <div className="inline-block border border-[#22d3ee]/50 bg-black/40 px-3 py-1">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#22d3ee]">{s.target.name}</p>
-            <div className="mt-1 h-1 w-28 overflow-hidden bg-white/10">
-              <div className="h-full bg-red-400" style={{ width: `${(s.target.hull / s.target.hullMax) * 100}%` }} />
+      {/* Target readout */}
+      {s.target && (() => {
+        const lk = s.target.lock;
+        const stage = lk >= 1 ? "LOCKED" : lk > 0 ? `LOCK ${Math.round(lk * 100)}%` : "TARGET DETECTED";
+        const col = lk >= 1 ? "#ff5a4d" : "#63d3e8";
+        return (
+          <div className="absolute left-1/2 top-[70%] -translate-x-1/2 text-center">
+            <div className="inline-block border bg-black/50 px-3 py-1" style={{ borderColor: `${col}80` }}>
+              <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: col }}>
+                {s.target.name} <span className="text-white/40">· {stage}</span>
+              </p>
+              <div className="mt-1 h-1 w-32 overflow-hidden bg-white/10">
+                <div className="h-full bg-[#ff5a4d]" style={{ width: `${(s.target.hull / s.target.hullMax) * 100}%` }} />
+              </div>
+              <p className="mt-0.5 text-[9px] tabular-nums text-white/40">{Math.round(s.target.distance)}m</p>
             </div>
-            <p className="mt-0.5 text-[9px] tabular-nums text-white/40">{Math.round(s.target.distance)}m</p>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* Crosshair */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div
-          className="h-6 w-6 rounded-full border transition-colors"
-          style={{ borderColor: s.target ? "#22d3ee" : "rgba(255,255,255,0.35)" }}
-        />
-        <div className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#22d3ee]" />
-      </div>
+      {/* Targeting reticle */}
+      {(() => {
+        const lk = s.target?.lock ?? 0;
+        const locked = lk >= 1;
+        const col = locked ? "#ff5a4d" : s.target ? "#63d3e8" : "rgba(255,255,255,0.4)";
+        return (
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <svg width="70" height="70" viewBox="0 0 70 70" className="overflow-visible">
+              {[0, 90, 180, 270].map((a) => (
+                <line
+                  key={a}
+                  x1="35" y1="10" x2="35" y2="20"
+                  stroke={col} strokeWidth="1.5"
+                  transform={`rotate(${a} 35 35)`}
+                  style={{ transition: "stroke 160ms" }}
+                />
+              ))}
+              <circle cx="35" cy="35" r="16" fill="none" stroke={col} strokeWidth="1" opacity="0.5" />
+              {s.target && (
+                <circle
+                  cx="35" cy="35" r="16" fill="none"
+                  stroke={col} strokeWidth="2"
+                  strokeDasharray={`${lk * 100.5} 100.5`}
+                  transform="rotate(-90 35 35)"
+                  strokeLinecap="round"
+                />
+              )}
+              <circle cx="35" cy="35" r="1.5" fill={col} />
+              {locked && (
+                <text x="35" y="60" textAnchor="middle" fill="#ff5a4d" fontSize="7" letterSpacing="2">LOCK</text>
+              )}
+            </svg>
+          </div>
+        );
+      })()}
 
       {/* Warnings */}
       <div className="absolute left-1/2 top-1/3 flex -translate-x-1/2 flex-col items-center gap-2">
@@ -214,7 +248,7 @@ export default function Hud({
           </span>
         </div>
         <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.28em]">
-          <span className={s.empReady >= 1 ? "text-[#8b5cf6]" : "text-white/40"}>EMP · E</span>
+          <span className={s.empReady >= 1 ? "text-[#8b5cf6]" : "text-white/40"}>EMP · X</span>
           <div className="h-1.5 w-24 overflow-hidden bg-white/10">
             <div className="h-full bg-[#8b5cf6]" style={{ width: `${s.empReady * 100}%` }} />
           </div>

@@ -9,33 +9,21 @@ import { MISSIONS } from "../data/missions";
 import { missionUnlocked } from "../game/save";
 import { levelFromXp } from "../data/upgrades";
 import { ScreenShell, NeonButton, NV_FONT } from "./shared";
+import { ShipModel } from "../scene/Scene";
 
 /* ---------------- shared 3D backdrop ---------------- */
 function DriftingPhantom() {
   const g = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     if (!g.current) return;
-    g.current.rotation.y += dt * 0.18;
-    g.current.rotation.z = Math.sin(performance.now() / 2400) * 0.12;
-    g.current.position.y = Math.sin(performance.now() / 1800) * 0.4;
+    g.current.rotation.y += dt * 0.12;
+    g.current.rotation.z = Math.sin(performance.now() / 3200) * 0.08;
+    g.current.position.y = -0.4 + Math.sin(performance.now() / 2400) * 0.3;
   });
   return (
-    <group ref={g} scale={2.4} position={[0, -0.4, 0]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.7, 2.6, 6]} />
-        <meshStandardMaterial color="#0b1220" metalness={0.8} roughness={0.25} emissive="#22d3ee" emissiveIntensity={0.5} />
-      </mesh>
-      <mesh position={[0, -0.1, 0.2]}>
-        <boxGeometry args={[3.2, 0.14, 1]} />
-        <meshStandardMaterial color="#111827" metalness={0.6} roughness={0.4} emissive="#0e7490" emissiveIntensity={0.7} />
-      </mesh>
-      {[-0.8, 0.8].map((x) => (
-        <mesh key={x} position={[x, 0, 1.5]}>
-          <sphereGeometry args={[0.34, 10, 10]} />
-          <meshBasicMaterial color="#67e8f9" />
-        </mesh>
-      ))}
-      <pointLight position={[0, 0, 2]} color="#22d3ee" intensity={3} distance={16} />
+    <group ref={g} scale={1.05} position={[1.5, -0.6, 0]} rotation={[0.16, 2.55, 0.04]}>
+      <ShipModel />
+      <pointLight position={[0, 0, 3]} color="#63d3e8" intensity={2.4} distance={16} />
     </group>
   );
 }
@@ -44,11 +32,11 @@ function DriftingPhantom() {
 export function MenuWorld({ quality }: { quality: Settings["quality"] }) {
   const { scene, camera } = useThree();
   const geo = useMemo(() => {
-    const count = quality === "low" ? 700 : 2000;
+    const count = quality === "low" ? 900 : 2400;
     const g = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      const r = 60 + Math.random() * 200;
+      const r = 120 + Math.random() * 300;
       const th = Math.random() * Math.PI * 2;
       const ph = Math.acos(2 * Math.random() - 1);
       pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
@@ -60,38 +48,56 @@ export function MenuWorld({ quality }: { quality: Settings["quality"] }) {
   }, [quality]);
 
   const applied = useRef(false);
-  useFrame(() => {
+  useFrame(({ clock }) => {
     if (!applied.current) {
       applied.current = true;
-      scene.background = new THREE.Color("#04030a");
-      scene.fog = new THREE.Fog("#04030a", 20, 180);
-      camera.position.set(0, 1.5, 12);
-      camera.lookAt(0, 0, 0);
+      scene.background = new THREE.Color("#05060a");
+      scene.fog = new THREE.FogExp2("#05060a", 0.0016);
       const cam = camera as THREE.PerspectiveCamera;
       cam.fov = 42;
       cam.updateProjectionMatrix();
     }
+    const t = clock.elapsedTime;
+    camera.position.set(Math.sin(t * 0.05) * 3, 1.5 + Math.sin(t * 0.07) * 0.6, 12);
+    camera.lookAt(0, -0.3, 0);
   });
 
   return (
     <>
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[10, 10, 8]} intensity={0.7} color="#a5b4fc" />
+      <ambientLight intensity={0.06} color="#26324b" />
+      <directionalLight position={[40, 20, -30]} intensity={2.6} color="#fff2df" />
+      <directionalLight position={[-30, -10, 20]} intensity={0.4} color="#3f63a8" />
       <points geometry={geo}>
-        <pointsMaterial size={0.7} color="#c7d2fe" sizeAttenuation transparent opacity={0.9} />
+        <pointsMaterial size={1} color="#c8d4e6" sizeAttenuation transparent opacity={0.7} depthWrite={false} />
       </points>
-      <mesh position={[-40, 12, -80]} rotation={[0.3, 0.5, 0]}>
-        <planeGeometry args={[220, 160]} />
-        <meshBasicMaterial color="#6d28d9" transparent opacity={0.16} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh position={[50, -14, -110]} rotation={[-0.2, -0.5, 0.3]}>
-        <planeGeometry args={[280, 180]} />
-        <meshBasicMaterial color="#0e7490" transparent opacity={0.14} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh position={[26, 6, -50]}>
-        <sphereGeometry args={[7, 32, 32]} />
-        <meshStandardMaterial color="#1e293b" emissive="#312e81" emissiveIntensity={0.4} roughness={1} />
-      </mesh>
+      {/* distant planet — enormous, half-lit, pure scale */}
+      <group position={[-70, -34, -120]}>
+        <mesh>
+          <sphereGeometry args={[46, 48, 48]} />
+          <meshStandardMaterial color="#1b2028" roughness={1} metalness={0} />
+        </mesh>
+        <mesh scale={1.04}>
+          <sphereGeometry args={[46, 24, 24]} />
+          <meshBasicMaterial color="#2b4a66" transparent opacity={0.12} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      </group>
+      {/* a carrier hull adrift in the far dark */}
+      <group position={[60, 16, -90]} rotation={[0, 0.7, 0.05]}>
+        <mesh scale={[7, 5, 62]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#20242b" metalness={0.8} roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 4, 4]} scale={[3, 4, 12]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#2b313a" metalness={0.7} roughness={0.55} />
+        </mesh>
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[s * 3.6, 0, 0]} scale={[0.2, 1.2, 40]}>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshBasicMaterial color="#d8a24a" toneMapped={false} transparent opacity={0.4} />
+          </mesh>
+        ))}
+      </group>
       <DriftingPhantom />
     </>
   );

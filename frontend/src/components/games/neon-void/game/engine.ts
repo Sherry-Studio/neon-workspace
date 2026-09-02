@@ -24,8 +24,7 @@ import { ENVIRONMENTS } from "../data/environments";
 import { AudioEngine } from "./audio";
 import { createBoss, type Boss } from "./bosses";
 
-export const ARENA = 82; // half-extent on X/Z
-export const ARENA_Y = 20;
+export const BOUND = 360; // soft spherical combat-zone radius (no hard walls, no floor)
 
 let ID = 1;
 const nid = () => ID++;
@@ -116,8 +115,15 @@ export interface PlayerState {
   pos: THREE.Vector3;
   vel: THREE.Vector3;
   quat: THREE.Quaternion;
-  aimYaw: number;
-  aimPitch: number;
+  /** unit basis derived from quat each frame — the true "where the nose points" */
+  fwd: THREE.Vector3;
+  right: THREE.Vector3;
+  up: THREE.Vector3;
+  /** local angular velocity, x=pitch y=yaw z=roll (rad/s) — carries momentum */
+  angVel: THREE.Vector3;
+  throttle: number; // 0.45..1.5 eased
+  bank: number; // current roll amount, for auto-level + HUD
+  speed: number; // current scalar speed (eased) — drives streaks / FOV
   hull: number;
   shield: number;
   energy: number;
@@ -135,7 +141,7 @@ export interface PlayerState {
   boostRamp: number; // 0..1 visual
   damageT: number; // hit flash
   alive: boolean;
-  strafeTilt: number;
+  fireKick: number; // recoil impulse from firing (0..1)
 }
 
 export interface World {
@@ -151,6 +157,7 @@ export interface World {
   camShake: number;
   camPunch: number;
   time: number;
+  intro: number; // seconds elapsed since mission start, for the cinematic reveal
   reachProgress: number; // for "reach" missions 0..1
 }
 
@@ -232,13 +239,17 @@ export class GameEngine {
   private endResult: MissionResult | null = null;
   private countdown: number | null = null;
   private lockedTargetId: number | null = null;
+  private lockT = 0; // 0..1.6 — how long the reticle has held a target (missile lock)
   private fpsSmooth = 60;
   private difficulty: number;
 
   // scratch
   private _v = new THREE.Vector3();
   private _v2 = new THREE.Vector3();
+  private _v3 = new THREE.Vector3();
   private _q = new THREE.Quaternion();
+  private _q2 = new THREE.Quaternion();
+  private _e = new THREE.Euler();
 
   constructor(o: EngineOpts) {
     this.mission = o.mission;
@@ -253,11 +264,16 @@ export class GameEngine {
     void dmgTakenMul;
 
     const p: PlayerState = {
-      pos: new THREE.Vector3(0, 0, 30),
+      pos: new THREE.Vector3(0, 6, 96),
       vel: new THREE.Vector3(),
-      quat: new THREE.Quaternion(),
-      aimYaw: Math.PI,
-      aimPitch: 0,
+      quat: new THREE.Quaternion(), // identity → nose points down −Z into the scene
+      fwd: new THREE.Vector3(0, 0, -1),
+      right: new THREE.Vector3(1, 0, 0),
+      up: new THREE.Vector3(0, 1, 0),
+      angVel: new THREE.Vector3(),
+      throttle: 1,
+      bank: 0,
+      speed: 0,
       hull: o.stats.hullMax,
       shield: o.stats.shieldMax,
       energy: o.stats.energyMax,
@@ -275,7 +291,7 @@ export class GameEngine {
       boostRamp: 0,
       damageT: 0,
       alive: true,
-      strafeTilt: 0,
+      fireKick: 0,
     };
 
     this.world = {
@@ -300,6 +316,7 @@ export class GameEngine {
       camShake: 0,
       camPunch: 0,
       time: 0,
+      intro: 0,
       reachProgress: 0,
     };
 
@@ -314,16 +331,22 @@ export class GameEngine {
   private buildEnvironment() {
     const env = ENVIRONMENTS[this.mission.environment];
     const q = this.settings.quality;
-    const count = Math.round(env.asteroids * (q === "low" ? 0.5 : q === "medium" ? 0.8 : 1));
+    const count = Math.round(env.asteroids * (q === "low" ? 0.55 : q === "medium" ? 0.85 : 1));
     for (let i = 0; i < count; i++) {
+      // dense field the player flies *through* — a thick 3D belt, not a flat ring
       const a = Math.random() * Math.PI * 2;
-      const r = 20 + Math.random() * (ARENA - 24);
+      const r = 34 + Math.random() * 240;
+      const big = r > 130 && Math.random() < 0.16; // only far out
       this.world.asteroids.push({
-        pos: new THREE.Vector3(Math.cos(a) * r, (Math.random() - 0.5) * 14, Math.sin(a) * r),
-        vel: new THREE.Vector3((Math.random() - 0.5) * 1.4, 0, (Math.random() - 0.5) * 1.4),
-        radius: 1.6 + Math.random() * 4.4,
-        spin: new THREE.Vector3(Math.random() * 0.6, Math.random() * 0.6, Math.random() * 0.6),
-        rot: new THREE.Euler(),
+        pos: new THREE.Vector3(
+          Math.cos(a) * r + (Math.random() - 0.5) * 60,
+          (Math.random() - 0.5) * 150,
+          Math.sin(a) * r + (Math.random() - 0.5) * 60,
+        ),
+        vel: new THREE.Vector3((Math.random() - 0.5) * 1.1, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 1.1),
+        radius: big ? 9 + Math.random() * 9 : 1.3 + Math.random() * 4,
+        spin: new THREE.Vector3((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5),
+        rot: new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6),
         meteor: false,
       });
     }
@@ -340,16 +363,18 @@ export class GameEngine {
   private spawnEnemy(kind: EnemyKind) {
     const def = ENEMIES[kind];
     const p = this.world.player;
-    // Spawn mostly in the arc the player is facing (world-space angle that lines
-    // up with the aim direction), so combat comes to you.
-    const facing = Math.atan2(Math.cos(p.aimYaw), Math.sin(p.aimYaw));
-    const a = facing + (Math.random() - 0.5) * Math.PI * 1.5;
-    const r = 46 + Math.random() * 20;
-    const pos = new THREE.Vector3(
-      THREE.MathUtils.clamp(p.pos.x + Math.cos(a) * r, -ARENA + 4, ARENA - 4),
-      p.pos.y + (Math.random() - 0.5) * 12,
-      THREE.MathUtils.clamp(p.pos.z + Math.sin(a) * r, -ARENA + 4, ARENA - 4),
-    );
+    // Spawn in a shell around the player, biased into the arc the nose is facing
+    // so the fight comes to you — full 3D, no floor.
+    const r = 52 + Math.random() * 34;
+    const dir = this._v.copy(p.fwd)
+      .add(this._v2.set(
+        (Math.random() - 0.5) * 1.7,
+        (Math.random() - 0.5) * 1.4,
+        (Math.random() - 0.5) * 1.7,
+      ))
+      .normalize();
+    const pos = p.pos.clone().addScaledVector(dir, r);
+    if (pos.length() > BOUND - 20) pos.setLength(BOUND - 20);
     const dmul = this.difficulty;
     this.world.enemies.push({
       id: nid(),
@@ -420,69 +445,98 @@ export class GameEngine {
     const p = this.world.player;
     if (!p.alive) return;
 
-    // aim from mouse position (screen -1..1). Cursor near centre = fly straight;
-    // push toward an edge to bank/turn that way. Dead-zone keeps it steady.
+    // ---- FLIGHT MODEL --------------------------------------------------------
+    // The mouse chooses the DIRECTION the ship should point. Distance from the
+    // centre = how hard it turns (small dead-zone at the centre keeps it stable).
+    // The ship never snaps — angular velocity carries momentum and eases back to
+    // zero when the mouse recentres, so the nose settles on its own.
     const sens = this.settings.sensitivity;
-    const dz = (v: number) => {
+    const introHold = this.world.intro < 2.4; // controls locked during the reveal
+    const DZ = 0.07;
+    const shape = (v: number) => {
       const a = Math.abs(v);
-      if (a < 0.12) return 0;
-      const s = Math.sign(v) * ((a - 0.12) / 0.88);
-      return s * s * Math.sign(s); // ease-in for fine control near centre
+      if (a <= DZ) return 0;
+      const n = (a - DZ) / (1 - DZ);
+      return Math.sign(v) * n * n; // ease-in
     };
-    p.aimYaw -= dz(this.mouse.x) * dt * 2.3 * sens;
-    const pitchTarget = THREE.MathUtils.clamp(-dz(this.mouse.y) * 0.75, -0.8, 0.8);
-    p.aimPitch = THREE.MathUtils.damp(p.aimPitch, pitchTarget, 6, dt);
+    const mx = introHold ? 0 : shape(this.mouse.x);
+    const my = introHold ? 0 : shape(this.mouse.y);
 
-    // forward/right from yaw
-    const fwd = this._v.set(Math.sin(p.aimYaw), Math.sin(p.aimPitch) * 0.8, Math.cos(p.aimYaw)).normalize();
-    const right = this._v2.set(Math.sin(p.aimYaw + Math.PI / 2), 0, Math.cos(p.aimYaw + Math.PI / 2)).normalize();
+    const YAW_RATE = 1.75 * sens;
+    const PITCH_RATE = 1.55 * sens;
 
-    let thrust = 0;
-    let strafe = 0;
-    if (this.keys.has("w")) thrust += 1;
-    if (this.keys.has("s")) thrust -= 0.7;
-    if (this.keys.has("d")) strafe += 1;
-    if (this.keys.has("a")) strafe -= 1;
+    let wantYaw = -mx * YAW_RATE;   // mouse left  → nose left
+    const wantPitch = -my * PITCH_RATE; // mouse up  → nose up
+    let wantRoll = 0;
 
-    p.strafeTilt = THREE.MathUtils.damp(p.strafeTilt, -strafe * 0.5, 8, dt);
+    if (!introHold) {
+      if (this.keys.has("a")) wantYaw += YAW_RATE * 0.75;
+      if (this.keys.has("d")) wantYaw -= YAW_RATE * 0.75;
+    }
+    const manualRoll = this.keys.has("q") || this.keys.has("e");
+    if (manualRoll) {
+      if (this.keys.has("q")) wantRoll += 2.6;
+      if (this.keys.has("e")) wantRoll -= 2.6;
+    } else {
+      // bank INTO the turn, then auto-level back to zero when not turning
+      const bankTarget = THREE.MathUtils.clamp(wantYaw * 0.85, -0.9, 0.9);
+      wantRoll = (bankTarget - p.bank) * 3.4;
+    }
 
-    // boost
-    const wantBoost = this.keys.has(" ") && p.energy > 1 && thrust >= 0;
+    // ease angular velocity toward the request (inertia / weight)
+    p.angVel.x = THREE.MathUtils.damp(p.angVel.x, wantPitch, 3.6, dt);
+    p.angVel.y = THREE.MathUtils.damp(p.angVel.y, wantYaw, 3.6, dt);
+    p.angVel.z = THREE.MathUtils.damp(p.angVel.z, wantRoll, manualRoll ? 4 : 6, dt);
+
+    // integrate orientation in LOCAL space
+    this._q.setFromEuler(this._e.set(p.angVel.x * dt, p.angVel.y * dt, p.angVel.z * dt, "XYZ"));
+    p.quat.multiply(this._q).normalize();
+
+    // refresh basis + measured bank (right-wing height ≈ sin bank)
+    p.fwd.set(0, 0, -1).applyQuaternion(p.quat);
+    p.right.set(1, 0, 0).applyQuaternion(p.quat);
+    p.up.set(0, 1, 0).applyQuaternion(p.quat);
+    p.bank = Math.asin(THREE.MathUtils.clamp(p.right.y, -1, 1));
+
+    // ---- THRUST / BOOST -----------------------------------------------------
+    let throttleTarget = 1;
+    if (!introHold) {
+      if (this.keys.has("w")) throttleTarget = 1.5;
+      if (this.keys.has("s")) throttleTarget = 0.5;
+    }
+    p.throttle = THREE.MathUtils.damp(p.throttle, throttleTarget, 3.5, dt);
+
+    const wantBoost = !introHold && (this.keys.has("shift") || this.keys.has(" ")) && p.energy > 1;
     p.boosting = wantBoost;
-    p.boostRamp = THREE.MathUtils.damp(p.boostRamp, wantBoost ? 1 : 0, 8, dt);
+    // smooth spool-up, quicker spool-down — never an instant jump to max
+    p.boostRamp = THREE.MathUtils.damp(p.boostRamp, wantBoost ? 1 : 0, wantBoost ? 2.2 : 3.4, dt);
     if (wantBoost) {
       p.energy = Math.max(0, p.energy - this.stats.boostDrain * dt);
       if (p.energy <= 0) p.boosting = false;
     }
 
     const base = this.stats.speed * (this.mods.noUpgrades ? 0.92 : 1);
-    const maxSpeed = base * (p.boosting ? 2.0 : 1);
-    const accel = base * 3.4 * (p.boosting ? 1.7 : 1);
+    const cruise = introHold ? base * 0.35 : base * p.throttle;
+    const targetSpeed = cruise * (1 + p.boostRamp * 1.7); // boost ≈ 2.7× cruise
+    p.speed = THREE.MathUtils.damp(p.speed, targetSpeed, p.boosting ? 1.9 : 3, dt);
 
-    p.vel.addScaledVector(fwd, thrust * accel * dt);
-    p.vel.addScaledVector(right, strafe * accel * 0.85 * dt);
-    // drag
-    const drag = Math.pow(0.02, dt);
-    p.vel.multiplyScalar(drag);
-    if (p.vel.length() > maxSpeed) p.vel.setLength(maxSpeed);
-
+    // velocity eases toward "nose × speed" → the ship drifts/carves through turns
+    this._v3.copy(p.fwd).multiplyScalar(p.speed);
+    p.vel.lerp(this._v3, 1 - Math.pow(0.09, dt));
     p.pos.addScaledVector(p.vel, dt);
-    // clamp to arena (soft bounce)
-    (["x", "z"] as const).forEach((ax) => {
-      if (p.pos[ax] > ARENA) { p.pos[ax] = ARENA; p.vel[ax] *= -0.3; }
-      if (p.pos[ax] < -ARENA) { p.pos[ax] = -ARENA; p.vel[ax] *= -0.3; }
-    });
-    p.pos.y = THREE.MathUtils.clamp(p.pos.y, -ARENA_Y, ARENA_Y);
 
-    // orientation faces aim, banks on strafe
-    const look = new THREE.Matrix4().lookAt(
-      new THREE.Vector3(),
-      this._v.set(Math.sin(p.aimYaw), Math.sin(p.aimPitch), Math.cos(p.aimYaw)),
-      new THREE.Vector3(0, 1, 0),
-    );
-    this._q.setFromRotationMatrix(look);
-    this._q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), p.strafeTilt + Math.sin(this.elapsed * 4) * 0.02));
-    p.quat.slerp(this._q, 1 - Math.pow(0.001, dt));
+    // ---- SOFT COMBAT-ZONE BOUND (no walls, no floor) ----------------------
+    const dHome = p.pos.length();
+    if (dHome > BOUND) {
+      const inward = this._v.copy(p.pos).multiplyScalar(-1 / dHome);
+      p.vel.addScaledVector(inward, (dHome - BOUND) * 3 * dt);
+      p.pos.setLength(BOUND + (dHome - BOUND) * 0.6);
+      this.pushWarning("bound", "RETURN TO COMBAT ZONE", "info");
+    } else {
+      this.clearWarning("bound");
+    }
+
+    p.fireKick = Math.max(0, p.fireKick - dt * 4);
 
     // weapons
     p.fireCd -= dt;
@@ -503,7 +557,7 @@ export class GameEngine {
       p.missileCd = 0.55;
       this.missileBurst = 0;
     }
-    if (this.keys.has("e") && p.empCd <= 0 && p.energy >= 25) {
+    if (this.keys.has("x") && p.empCd <= 0 && p.energy >= 25) {
       this.fireEmp();
     }
 
@@ -519,7 +573,7 @@ export class GameEngine {
     // reach-mission progress: fly "forward" (−z world) toward the portal
     if (this.mission.objective.kind === "reach") {
       const goal = 1;
-      const speedFrac = THREE.MathUtils.clamp((thrust > 0 ? p.vel.length() : 0) / (base * 1.4), 0, 1);
+      const speedFrac = THREE.MathUtils.clamp(p.speed / (base * 1.4), 0, 1);
       this.world.reachProgress = Math.min(
         goal,
         this.world.reachProgress + speedFrac * dt * 0.028,
@@ -532,32 +586,34 @@ export class GameEngine {
 
   private firePulse() {
     const p = this.world.player;
-    const dir = this._v.set(Math.sin(p.aimYaw), Math.sin(p.aimPitch), Math.cos(p.aimYaw)).normalize();
-    // soft aim assist: bend up to ~6° toward a locked target
+    const dir = this._v.copy(p.fwd);
+    // soft aim assist: bend a little toward a locked target near the reticle
     if (this.settings.targetAssist && this.lockedTargetId) {
       const e = this.world.enemies.find((x) => x.id === this.lockedTargetId && x.alive);
       if (e) {
         const to = this._v2.copy(e.pos).sub(p.pos).normalize();
-        dir.lerp(to, 0.72).normalize();
+        dir.lerp(to, 0.55).normalize();
       }
     }
     const crit = Math.random() < this.stats.critChance;
     const dmg = this.stats.damage * (this.mods.glassCannon ? 2 : 1) * (crit ? 2.4 : 1) * (this.mods.noUpgrades ? 0.85 : 1);
-    for (const off of [-0.5, 0.5]) {
+    for (const off of [-1.2, 1.2]) {
       const b = this.world.pBullets.find((x) => !x.active);
       if (!b) break;
       b.active = true;
       b.from = "player";
-      b.pos.copy(p.pos).addScaledVector(this._v2.set(Math.sin(p.aimYaw + Math.PI / 2), 0, Math.cos(p.aimYaw + Math.PI / 2)), off);
-      b.vel.copy(dir).multiplyScalar(140);
-      b.life = 1.4;
+      b.pos.copy(p.pos).addScaledVector(p.right, off).addScaledVector(p.fwd, 1.4);
+      b.vel.copy(dir).multiplyScalar(180);
+      b.life = 1.6;
       b.damage = dmg;
       b.crit = crit;
       b.radius = 0.6;
-      b.colour = crit ? "#a3e635" : "#22d3ee";
+      b.colour = crit ? "#d6f56a" : "#7fdfff";
     }
     this.shotsFired += 1;
-    this.spawnFx(p.pos, "muzzle", 0.09, 1.4, "#22d3ee");
+    this.spawnFx(this._v3.copy(p.pos).addScaledVector(p.fwd, 2), "muzzle", 0.08, 1.5, "#8fe4ff");
+    p.fireKick = 1;
+    this.world.camPunch = Math.min(1, this.world.camPunch + 0.08);
     this.onEvent({ type: "sfx", name: "shoot" });
   }
 
@@ -565,14 +621,17 @@ export class GameEngine {
     const p = this.world.player;
     const m = this.world.missiles.find((x) => !x.active);
     if (!m) return;
-    const dir = this._v.set(Math.sin(p.aimYaw), Math.sin(p.aimPitch), Math.cos(p.aimYaw)).normalize();
+    const dir = this._v.copy(p.fwd);
     m.active = true;
-    m.pos.copy(p.pos);
-    m.vel.copy(dir).multiplyScalar(40);
+    m.pos.copy(p.pos).addScaledVector(p.fwd, 1);
+    m.vel.copy(dir).multiplyScalar(46);
     m.life = 4.5;
     m.damage = this.stats.missileDamage * (this.mods.glassCannon ? 2 : 1);
     m.tracking = 4.5;
-    m.targetId = this.pickMissileTarget();
+    m.targetId =
+      this.lockT >= 1.4 && this.lockedTargetId != null
+        ? this.lockedTargetId
+        : this.pickMissileTarget();
     this.onEvent({ type: "sfx", name: "missile" });
   }
 
@@ -674,9 +733,9 @@ export class GameEngine {
 
       e.vel.lerp(desired.multiplyScalar(slow), 1 - Math.pow(0.05, dt));
       e.pos.addScaledVector(e.vel, dt);
-      e.pos.x = THREE.MathUtils.clamp(e.pos.x, -ARENA, ARENA);
-      e.pos.z = THREE.MathUtils.clamp(e.pos.z, -ARENA, ARENA);
-      e.pos.y = THREE.MathUtils.clamp(e.pos.y, -14, 14);
+      // keep enemies inside the same soft sphere as the player — full 3D
+      const ed = e.pos.length();
+      if (ed > BOUND) { e.pos.setLength(BOUND); e.vel.multiplyScalar(0.4); }
 
       // firing
       e.fireCd -= dt;
@@ -969,11 +1028,14 @@ export class GameEngine {
       a.pos.addScaledVector(a.vel, dt);
       a.rot.x += a.spin.x * dt;
       a.rot.y += a.spin.y * dt;
-      // wrap
-      (["x", "z"] as const).forEach((ax) => {
-        if (a.pos[ax] > ARENA + 6) a.pos[ax] = -ARENA - 6;
-        if (a.pos[ax] < -ARENA - 6) a.pos[ax] = ARENA + 6;
-      });
+      a.rot.z += a.spin.z * dt;
+      // recycle rocks that drift far from the action back to the far side
+      if (!a.meteor && a.pos.distanceTo(p.pos) > 320) {
+        const dir = this._v.copy(p.fwd)
+          .add(this._v2.set((Math.random() - 0.5) * 2.2, (Math.random() - 0.5) * 2.2, (Math.random() - 0.5) * 2.2))
+          .normalize();
+        a.pos.copy(p.pos).addScaledVector(dir, 180 + Math.random() * 120);
+      }
       if (p.alive && a.pos.distanceTo(p.pos) < a.radius + 1.6) {
         const push = this._v.copy(p.pos).sub(a.pos).normalize();
         p.pos.addScaledVector(push, a.radius + 1.6 - a.pos.distanceTo(p.pos));
@@ -981,18 +1043,28 @@ export class GameEngine {
         this.damagePlayer(a.meteor ? 22 : 14, p.pos);
       }
     }
-    // meteors
-    if (ENVIRONMENTS[this.mission.environment].meteors && Math.random() < dt * 0.7) {
-      const a = Math.random() * Math.PI * 2;
+    // meteor storm — rocks streak past the player from a random broadside
+    if (ENVIRONMENTS[this.mission.environment].meteors && Math.random() < dt * 1.1) {
+      const side = this._v.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+      const from = p.pos.clone().addScaledVector(side, 150);
+      const to = p.pos.clone().addScaledVector(this._v2.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(), 40);
       this.world.asteroids.push({
-        pos: new THREE.Vector3(Math.cos(a) * (ARENA + 4), (Math.random() - 0.5) * 12, Math.sin(a) * (ARENA + 4)),
-        vel: new THREE.Vector3(-Math.cos(a), 0, -Math.sin(a)).multiplyScalar(18 + Math.random() * 12),
-        radius: 1.2 + Math.random() * 2.4,
+        pos: from,
+        vel: to.sub(from).normalize().multiplyScalar(34 + Math.random() * 22),
+        radius: 1 + Math.random() * 2.2,
         spin: new THREE.Vector3(Math.random(), Math.random(), Math.random()),
         rot: new THREE.Euler(),
         meteor: true,
       });
-      if (this.world.asteroids.length > 80) this.world.asteroids.shift();
+      if (this.world.asteroids.length > 120) {
+        const idx = this.world.asteroids.findIndex((x) => x.meteor);
+        if (idx >= 0) this.world.asteroids.splice(idx, 1);
+      }
+    }
+    // retire meteors once they have swept well past
+    for (let i = this.world.asteroids.length - 1; i >= 0; i--) {
+      const a = this.world.asteroids[i];
+      if (a.meteor && a.pos.distanceTo(p.pos) > 220) this.world.asteroids.splice(i, 1);
     }
   }
 
@@ -1128,6 +1200,7 @@ export class GameEngine {
     const dt = Math.min(0.05, dtRaw);
     this.elapsed += dt;
     this.world.time = this.elapsed;
+    this.world.intro += dt;
     this.fpsSmooth = this.fpsSmooth * 0.9 + fps * 0.1;
 
     // combo decay
@@ -1179,7 +1252,7 @@ export class GameEngine {
     this.checkObjective();
 
     // target lock (soft assist: nearest enemy within a cone)
-    this.updateLock();
+    this.updateLock(dt);
 
     // critical warning maintenance
     const p = this.world.player;
@@ -1201,21 +1274,27 @@ export class GameEngine {
     b.colour = colour;
   }
 
-  private updateLock() {
+  private updateLock(dt: number) {
     const p = this.world.player;
-    const dir = this._v.set(Math.sin(p.aimYaw), Math.sin(p.aimPitch), Math.cos(p.aimYaw)).normalize();
+    const dir = this._v.copy(p.fwd);
     let best: Enemy | null = null;
-    let bestDot = this.settings.targetAssist ? 0.9 : 0.965;
+    let bestDot = this.settings.targetAssist ? 0.94 : 0.975;
     for (const e of this.world.enemies) {
       if (!e.alive) continue;
       const to = this._v2.copy(e.pos).sub(p.pos);
       const d = to.length();
-      if (d > 160) continue;
+      if (d > 220) continue;
       to.normalize();
       const dot = to.dot(dir);
       if (dot > bestDot) { bestDot = dot; best = e; }
     }
-    this.lockedTargetId = best ? best.id : null;
+    const newId = best ? best.id : null;
+    if (newId != null && newId === this.lockedTargetId) {
+      this.lockT = Math.min(1.6, this.lockT + dt);
+    } else {
+      this.lockT = 0;
+    }
+    this.lockedTargetId = newId;
   }
 
   // ---------------------------------------------------------------- HUD snapshot
@@ -1243,7 +1322,13 @@ export class GameEngine {
       ? (() => {
           const e = this.world.enemies.find((x) => x.id === this.lockedTargetId && x.alive);
           if (!e) return null;
-          return { name: e.name, hull: Math.max(0, e.hull), hullMax: e.hullMax, distance: e.pos.distanceTo(p.pos) };
+          return {
+            name: e.name,
+            hull: Math.max(0, e.hull),
+            hullMax: e.hullMax,
+            distance: e.pos.distanceTo(p.pos),
+            lock: THREE.MathUtils.clamp(this.lockT / 1.5, 0, 1),
+          };
         })()
       : null;
 
@@ -1300,5 +1385,5 @@ export class GameEngine {
 }
 
 function outside(v: THREE.Vector3) {
-  return Math.abs(v.x) > ARENA + 30 || Math.abs(v.z) > ARENA + 30 || Math.abs(v.y) > 60;
+  return v.length() > BOUND + 140;
 }
