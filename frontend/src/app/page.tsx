@@ -13,14 +13,17 @@ import type { Game, BlogPost } from "@/types/api";
 
 export const dynamic = "force-dynamic";
 
-const FALLBACK_IMAGE = "/images/cyber-runner.jpg";
+const FALLBACK_IMAGE = "/images/quantum-break.jpg";
+
+/** Only games actually built into this site (internal routes). */
+const isPlayable = (g: Game) => typeof g.gameUrl === "string" && g.gameUrl.startsWith("/games/");
 
 export default async function HomePage() {
   let featured: Game[] = [];
   let posts: BlogPost[] = [];
   try {
     [featured, posts] = await Promise.all([
-      gamesService.featured(6),
+      gamesService.featured(6).then((g) => g.filter(isPlayable)),
       blogsService.list({ limit: 2 }, { server: true }).then((p) => p.items),
     ]);
   } catch {

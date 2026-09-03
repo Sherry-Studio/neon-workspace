@@ -1,96 +1,41 @@
 import { BlogCategory, BlogStatus, GameCategory, GameStatus } from '../types';
 
 /**
- * Initial catalogue. These are inserted by `npm run seed` but are NOT hardcoded
- * into the running app — after seeding they live in MongoDB and are fully
- * managed through the admin API.
+ * Initial catalogue. Inserted by `npm run seed` but NOT hardcoded into the
+ * running app -- after seeding they live in MongoDB and are managed through the
+ * admin API.
+ *
+ * NEON ORBIT is the only game in development. The catalogue holds this one
+ * title -- no placeholders, no fake cards.
  */
 export const seedGames = [
   {
-    title: 'NEON VOID — LAST ORBIT',
+    title: 'NEON ORBIT',
     slug: 'neon-void',
     shortDescription:
-      'A fast-paced 3D space-combat arcade game. Pilot the NX-01 Phantom, break the Rift fleet and destroy the Rift Core.',
+      'A cinematic 3D deep-space flight experience. Take the controls of a lone fighter and fly through an enormous sci-fi universe.',
     description:
-      'NEON VOID — LAST ORBIT is a cinematic 3D arcade shooter. You are the last pilot of a shattered human fleet, flying an experimental prototype against THE RIFT — an alien faction tearing dimensional portals through the solar system. Nine missions across three sectors, three boss fights, an upgradeable ship, combo-driven scoring and style ranks. Built directly into NEON ARCADE with React Three Fiber.',
-    category: GameCategory.SHOOTER,
+      'NEON ORBIT is a premium, cinematic space-flight experience built directly into NEON ARCADE with React Three Fiber. A black screen gives way to a star field, deep space opens up, and an enormous celestial body drifts in the distance. Your fighter enters frame, the camera settles behind it, and control is yours. Steer with a mouse or a Mac trackpad through a universe with real scale -- the Moon dwarfs your ship, Mars sits vast and distant, and a black hole waits, terrifyingly huge, on the far horizon. Phase I is the foundation: the environment and the flight. Combat comes later.',
+    category: GameCategory.ACTION,
     status: GameStatus.PUBLISHED,
     featured: true,
     gameUrl: '/games/neon-void',
-    version: '1.0.0',
+    version: '0.1.0',
     thumbnail: '/images/quantum-break.jpg',
     banner: '/images/quantum-break.jpg',
-    genre: 'SPACE COMBAT',
-    tagline: 'Fly the Phantom. End the Rift.',
-    gradient: 'linear-gradient(135deg, #0a0a1f 0%, #1a0a3e 50%, #3e0a4a 100%)',
+    genre: 'SPACE FLIGHT',
+    tagline: 'Take the controls. Fly the deep field.',
+    gradient: 'linear-gradient(135deg, #05060a 0%, #0c1424 55%, #1a1030 100%)',
     instructions:
-      'Survive enemy waves, protect what is left of humanity and reach the Rift Core before the dimensional collapse. WASD to fly, mouse to aim, click to fire.',
+      'Move your mouse or trackpad away from centre to steer -- the ship banks into the turn and stabilises when you return to centre. Click for mouse-lock steering. SHIFT to boost.',
     controls: [
-      'WASD — Fly / strafe',
-      'Mouse — Aim',
-      'Left click — Pulse Cannon',
-      'Right click / R — Rift Missile',
-      'Space — Boost',
-      'E — EMP Burst',
-      'Esc — Pause',
+      'Mouse / Trackpad - Steer the ship',
+      'Click - Mouse-lock steering',
+      'W / S - Throttle, A / D - Yaw',
+      'Q / E - Roll',
+      'Shift - Boost',
+      'Esc - Release mouse',
     ],
-  },
-  {
-    title: 'Neon Runner',
-    slug: 'neon-runner',
-    shortDescription: 'Dash through neon-lit cityscapes in the endless runner that defined a generation of browser play.',
-    description:
-      'Neon Runner is a high-velocity endless runner set across the rooftops and undercities of a rain-slicked cyber metropolis. Chain perfect slides, wall-runs and jumps to build a multiplier, and outrun the collapse behind you.',
-    category: GameCategory.ARCADE,
-    status: GameStatus.PUBLISHED,
-    featured: true,
-    gameUrl: 'https://games.neonarcade.dev/neon-runner/index.html',
-    version: '1.0.0',
-    thumbnail: '/images/cyber-runner.jpg',
-    banner: '/images/cyber-runner.jpg',
-    genre: 'ACTION',
-    tagline: 'Dash through neon-lit skylines.',
-    gradient: 'linear-gradient(135deg, #0f1027 0%, #16213e 55%, #0f3460 100%)',
-    instructions: 'Survive as long as possible. Distance and pickups build your score.',
-    controls: ['Space / Up — Jump', 'Down — Slide', 'Left / Right — Switch lane'],
-  },
-  {
-    title: 'Neon Space Shooter',
-    slug: 'neon-space-shooter',
-    shortDescription: 'Retro-inspired shoot-’em-up with modern bullet-hell energy.',
-    description:
-      'Pilot a prototype interceptor against endless waves of geometric invaders. Collect power cores to upgrade your spread, shield and lock-on drones, and push for a spot on the global board.',
-    category: GameCategory.SHOOTER,
-    status: GameStatus.PUBLISHED,
-    featured: true,
-    gameUrl: 'https://games.neonarcade.dev/neon-space-shooter/index.html',
-    version: '1.0.0',
-    thumbnail: '/images/pixel-blaster.jpg',
-    banner: '/images/pixel-blaster.jpg',
-    genre: 'ARCADE',
-    tagline: 'Retro firepower, modern edge.',
-    gradient: 'linear-gradient(135deg, #221a0f 0%, #2a1c10 55%, #170f0a 100%)',
-    instructions: 'Destroy waves, dodge fire, grab power cores. One life, high stakes.',
-    controls: ['Move — Arrow keys / WASD', 'Fire — Space (hold for auto)', 'Bomb — Shift'],
-  },
-  {
-    title: 'Neon Drift Racer',
-    slug: 'neon-drift-racer',
-    shortDescription: 'Master the art of the drift on impossible neon circuits.',
-    description:
-      'Neon Drift Racer is a momentum-based racer where the fastest line is sideways. Bank drift charge through corners and unleash it on the straights, and hunt the ghost of the current record holder.',
-    category: GameCategory.RACING,
-    status: GameStatus.PUBLISHED,
-    featured: true,
-    gameUrl: 'https://games.neonarcade.dev/neon-drift-racer/index.html',
-    version: '1.0.0',
-    thumbnail: '/images/neon-drift.jpg',
-    banner: '/images/neon-drift.jpg',
-    genre: 'RACING',
-    tagline: 'Own every corner.',
-    gradient: 'linear-gradient(135deg, #241435 0%, #1a0a2e 55%, #16213e 100%)',
-    instructions: 'Finish 3 laps as fast as possible. Drifting fills boost.',
-    controls: ['Accelerate — Up / W', 'Brake / Drift — Down / S or Space', 'Steer — Left / Right'],
   },
 ];
 
@@ -146,18 +91,18 @@ export const seedPosts = [
     readTime: '12 MIN READ',
     authorName: 'NEONARCADE EDITORIAL',
     excerpt:
-      'From Flash games to WebGL — the untold story of how browser gaming shaped an entire generation of players and developers.',
+      'From Flash games to WebGL - the untold story of how browser gaming shaped an entire generation of players and developers.',
     heroGradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
     coverImage: '/images/article-browser-gaming.jpg',
     pullQuote:
-      'Browser games didn’t just entertain — they democratized game development for an entire generation.',
-    relatedGames: ['Neon Runner', 'Neon Space Shooter'],
+      'Browser games did not just entertain - they democratized game development for an entire generation.',
+    relatedGames: ['NEON ORBIT'],
     contentBlocks: [
-      'The story of browser gaming is the story of the internet itself. Before app stores and digital distribution, a small but revolutionary medium was taking shape inside web browsers — games anyone could play, anywhere, without installing a single file.',
+      'The story of browser gaming is the story of the internet itself. Before app stores and digital distribution, a small but revolutionary medium was taking shape inside web browsers - games anyone could play, anywhere, without installing a single file.',
       'In the late 1990s, Macromedia Flash transformed the web from a static document viewer into a vibrant playground. Developers could suddenly create interactive experiences that ran on virtually any computer with an internet connection.',
       'The golden age arrived between 2004 and 2010. Studios like Armor Games and Kongregate became the arcades of a new generation, and the barrier to entry was nothing more than a browser and an idea.',
-      'Today, WebGL, WebAssembly and WebGPU have pushed browser gaming into a new era — games that once required dedicated hardware now run at 60fps inside a tab.',
-      'The browser has become the most universal gaming platform in history. No downloads, no updates, no walled gardens — just a URL and a connection.',
+      'Today, WebGL, WebAssembly and WebGPU have pushed browser gaming into a new era - games that once required dedicated hardware now run at 60fps inside a tab.',
+      'The browser has become the most universal gaming platform in history. No downloads, no updates, no walled gardens - just a URL and a connection.',
     ],
   },
   {
@@ -173,12 +118,12 @@ export const seedPosts = [
     coverImage: '/images/article-arcade.jpg',
     pullQuote:
       'In 1982, arcade machines generated more revenue than the entire American film industry.',
-    relatedGames: ['Neon Drift Racer', 'Neon Space Shooter'],
+    relatedGames: ['NEON ORBIT'],
     contentBlocks: [
       'The golden age of arcade gaming began with Space Invaders in 1978. In Japan the game caused a nationwide coin shortage; in America it transformed bars and pizza parlors into neon-lit cathedrals of competition.',
-      'By 1982 the arcade industry was generating $8 billion in quarters — more than the entire American film industry and pop music combined.',
+      'By 1982 the arcade industry was generating $8 billion in quarters - more than the entire American film industry and pop music combined.',
       'The social aspect cannot be overstated. These were communal spaces where skill was currency and high scores were immortality.',
-      'Though the golden age ended with the crash of 1983, its influence persists in every corner of the industry — esports, streaming, and modern multiplayer all carry its DNA.',
+      'Though the golden age ended with the crash of 1983, its influence persists in every corner of the industry - esports, streaming, and modern multiplayer all carry its DNA.',
     ],
   },
   {
@@ -189,13 +134,13 @@ export const seedPosts = [
     readTime: '8 MIN READ',
     authorName: 'NEONARCADE EDITORIAL',
     excerpt:
-      'From Pole Position’s primitive sprites to photorealistic simulations — how racing games pushed technology forward.',
+      'From Pole Position primitive sprites to photorealistic simulations - how racing games pushed technology forward.',
     heroGradient: 'linear-gradient(135deg, #0a1628 0%, #1a2332 50%, #0d1b2a 100%)',
     coverImage: '/images/article-racing.jpg',
     pullQuote: 'Every generation of hardware has been defined by its racing games.',
-    relatedGames: ['Neon Drift Racer'],
+    relatedGames: ['NEON ORBIT'],
     contentBlocks: [
-      'Racing games have always been at the frontier of gaming technology, from electromechanical cabinets to today’s photorealistic simulations.',
+      'Racing games have always been at the frontier of gaming technology, from electromechanical cabinets to photorealistic simulations.',
       'Pole Position (1982) introduced a rear-view perspective and qualifying lap system that was revolutionary for its time.',
       'The 1990s brought true 3D with Ridge Racer and Need for Speed; Gran Turismo (1997) proved players craved realism alongside arcade thrills.',
       'Modern racing games achieve photorealism unimaginable a decade ago, and continue to evolve with VR, ray tracing and AI-driven opponents.',
@@ -212,13 +157,13 @@ export const seedPosts = [
       'How connecting players across the world transformed gaming from solitary entertainment into shared experience.',
     heroGradient: 'linear-gradient(135deg, #0a2818 0%, #1a3a2a 50%, #0d2b1a 100%)',
     coverImage: '/images/article-multiplayer.jpg',
-    pullQuote: 'Multiplayer didn’t just change how we play games — it changed why we play them.',
-    relatedGames: ['Neon Space Shooter'],
+    pullQuote: 'Multiplayer did not just change how we play games - it changed why we play them.',
+    relatedGames: ['NEON ORBIT'],
     contentBlocks: [
-      'The first networked game, Spacewar!, ran on PDP-1 computers in 1962 — two players on a single shared screen.',
+      'The first networked game, Spacewar!, ran on PDP-1 computers in 1962 - two players on a single shared screen.',
       'MUDs in the 1980s proved that shared worlds were compelling, forming communities that transcended geography.',
       'Quake (1996) and its prediction-and-rollback netcode made real-time competitive play viable over consumer internet.',
-      'Today multiplayer is not a feature — it is the default expectation, from battle royales to co-op adventures.',
+      'Today multiplayer is not a feature - it is the default expectation, from battle royales to co-op adventures.',
     ],
   },
 ];
