@@ -37,6 +37,34 @@ export const seedGames = [
       'Esc - Release mouse',
     ],
   },
+  {
+    title: 'HOOFBEAT',
+    slug: 'horse-city',
+    shortDescription:
+      'A third-person horse-riding city exploration game. Explore a medieval city on foot, find your horse, mount up, and ride through the streets.',
+    description:
+      'HOOFBEAT is a browser-native third-person exploration game built into NEON ARCADE with React Three Fiber. You start on foot as a lone traveller in a medieval city. Walk the streets, find your horse waiting nearby, approach it, and press E for a full mount sequence -- the rider steps to the horse\'s side and climbs into the saddle while the camera eases back. From there the horse moves like an animal: it accelerates through walk, trot and gallop, turns sharply at low speed and wide at speed, and tires if you gallop too long. Dismount anywhere and the horse stays exactly where you left it, ready for your return. The models are static scans rigged with a procedural, stride-locked animation system so nothing slides or freezes.',
+    category: GameCategory.ACTION,
+    status: GameStatus.PUBLISHED,
+    featured: false,
+    gameUrl: '/games/horse-city',
+    version: '0.1.0',
+    thumbnail: '/images/quantum-break.jpg',
+    banner: '/images/quantum-break.jpg',
+    genre: 'EXPLORATION',
+    tagline: 'Find your horse. Ride the city.',
+    gradient: 'linear-gradient(135deg, #0e1116 0%, #2a2320 55%, #4a3a2a 100%)',
+    instructions:
+      'Walk to the horse and press E to mount. Hold Shift to move up through walk, trot and gallop; release to slow down. Press E again while slow or stopped to dismount -- the horse stays where you leave it.',
+    controls: [
+      'W A S D - Move',
+      'Shift - Run / Gallop',
+      'Space - Jump',
+      'Mouse - Look around',
+      'E - Mount / Dismount',
+      'P - Pause',
+    ],
+  },
 ];
 
 export const seedAchievements = [

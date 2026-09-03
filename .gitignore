@@ -42,3 +42,6 @@ coverage/
 
 # journey verification build output
 frontend/.verify/
+
+# horse-city asset pipeline scratch
+frontend/.asset-tmp/
