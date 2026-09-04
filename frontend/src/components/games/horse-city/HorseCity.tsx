@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { AdaptiveDpr, BakeShadows } from "@react-three/drei";
+import { AdaptiveDpr } from "@react-three/drei";
 
 import Scene from "./Scene";
 import { SPAWN } from "./config";
@@ -48,13 +48,13 @@ export default function HorseCity() {
     <div className="fixed inset-0 select-none bg-[#cdd6e4]">
       <Canvas
         shadows
+        frameloop="always"
         dpr={[1, 1.75]}
         camera={{ position: [0, 3, 10], fov: 55, near: 0.1, far: 400 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
         <Suspense fallback={null}>
           <Scene world={world} onHud={onHud} />
-          <BakeShadows />
         </Suspense>
         <AdaptiveDpr pixelated />
       </Canvas>

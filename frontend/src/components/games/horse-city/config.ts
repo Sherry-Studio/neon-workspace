@@ -8,9 +8,9 @@ export const ASSETS = {
 
 /** Where things start in world space (metres). Tuned to the city GLB after import. */
 export const SPAWN = {
-  girl: [2, 3, 10] as [number, number, number],
+  girl: [18, 3, 12] as [number, number, number],
   girlFacing: Math.PI, // radians, yaw
-  horse: [-4, 3, -12] as [number, number, number],
+  horse: [12, 3, -12] as [number, number, number],
   horseFacing: Math.PI * 0.5,
 };
 
@@ -48,7 +48,7 @@ export const HORSE = {
   jumpSpeed: 6.0,
   radius: 0.75,
   length: 2.4,
-  saddleOffset: [0, 1.5, -0.1] as [number, number, number], // rider seat, local to horse
+  saddleOffset: [0, 1.28, -0.35] as [number, number, number], // rider seat, local to horse
 };
 
 export const STAMINA = {

@@ -21,7 +21,7 @@ import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import {
   weld, simplify, dedup, prune, resample, textureCompress, draco, flatten, join as joinMeshes,
-  mergeDocuments,
+  mergeDocuments, normals,
 } from "@gltf-transform/functions";
 import { getBounds } from "@gltf-transform/functions";
 import { MeshoptSimplifier } from "meshoptimizer";
@@ -37,33 +37,43 @@ const TMP = join(HERE, "..", ".asset-tmp");
 const SUBJECTS = {
   city: {
     dir: `${DL}/Medieval City Pack Demo (1)`,
-    simplifyRatio: 0.28,
+    // gentle: aggressive simplify shreds the low-poly buildings
+    simplifyRatio: 0.65,
+    simplifyError: 0.008,
+    weldTol: 0.00008,
     material: "city",
+    bakeColors: true,
     // photogrammetry units are ~mm; bring to metres, sit on ground, centre in XZ
-    norm: { scale: 0.0018, rotX: 0, groundY: 0, centreXZ: true },
+    norm: { scale: 0.0016, rotX: 0, groundY: 0, centreXZ: true },
   },
   girl: {
     dir: `${DL}/LeeAnna Vamp - Firefly Cosplay`,
-    simplifyRatio: 0.08,
+    simplifyRatio: 0.35,
+    simplifyError: 0.012,
+    weldTol: 0.0003,
     texture: `${DL}/LeeAnna Vamp - Firefly Cosplay/leeanna vamp texture4096.png`,
     material: "girl",
     // scan is lying along +Z — stand her up, real scale is already ~metres
-    norm: { scale: 1, rotX: -Math.PI / 2, groundY: 0, centreXZ: true },
+    norm: { scale: 1.12, rotX: -Math.PI / 2, groundY: 0, centreXZ: true },
   },
   horse: {
     dir: `${DL}/Midnight Black Horse 3d model free`,
-    simplifyRatio: 0.05,
+    // all 12 parts merged make the recognisable animal; a single part is broken
+    simplifyRatio: 0.22,
+    simplifyError: 0.015,
+    weldTol: 0.0006,
     material: "horse",
-    norm: { scale: 1.3, rotX: 0, groundY: 0, centreXZ: true },
+    norm: { scale: 1.42, rotX: 0, groundY: 0, centreXZ: true },
   },
 };
 
-async function objPartsToGlb(subjectDir, tmpDir) {
+async function objPartsToGlb(subjectDir, tmpDir, only) {
   mkdirSync(tmpDir, { recursive: true });
   const { writeFileSync } = await import("node:fs");
-  const parts = readdirSync(subjectDir)
+  let parts = readdirSync(subjectDir)
     .filter((f) => f.toLowerCase().endsWith(".obj"))
     .sort();
+  if (only) parts = parts.filter((p) => only.includes(p));
   const glbs = [];
   for (const p of parts) {
     const src = join(subjectDir, p);
@@ -95,7 +105,7 @@ async function main() {
   for (const [name, cfg] of Object.entries(SUBJECTS)) {
     console.log(`\n=== ${name} ===`);
     const tmpDir = join(TMP, name);
-    const glbs = await objPartsToGlb(cfg.dir, tmpDir);
+    const glbs = await objPartsToGlb(cfg.dir, tmpDir, cfg.only);
 
     // merge all parts into one document
     const doc = await io.read(glbs[0]);
@@ -116,13 +126,20 @@ async function main() {
       dedup(),
       flatten(),
       joinMeshes(),
-      weld({ tolerance: 0.0001 }),
-      simplify({ simplifier: MeshoptSimplifier, ratio: cfg.simplifyRatio, error: 0.02 }),
+      weld({ tolerance: cfg.weldTol ?? (cfg.material === "city" ? 0.0003 : 0.0008) }),
+      simplify({
+        simplifier: MeshoptSimplifier,
+        ratio: cfg.simplifyRatio,
+        error: cfg.simplifyError ?? 0.05,
+        lockBorder: true, // keep building silhouettes intact
+      }),
+      normals({ overwrite: true }), // repair shading after decimation
       prune(),
     );
 
     // stylised material (MTLs are missing from every source)
     applyMaterial(doc, cfg.material);
+    if (cfg.bakeColors) bakeCityColors(doc);
 
     if (cfg.texture && existsSync(cfg.texture)) {
       await attachBaseColor(doc, cfg.texture);
@@ -196,6 +213,93 @@ function applyMaterial(doc, kind) {
     for (const mesh of doc.getRoot().listMeshes())
       for (const prim of mesh.listPrimitives()) prim.setMaterial(m);
   }
+}
+
+/**
+ * Bake stylised vertex colours into the (untextured, un-material'd) city mesh
+ * from height + surface orientation: cobbled streets, sandstone/plaster walls,
+ * timber accents, terracotta & slate roofs, with per-block hue noise.
+ */
+function bakeCityColors(doc) {
+  const buffer = doc.getRoot().listBuffers()[0];
+  // global vertical extent
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const meshes = doc.getRoot().listMeshes();
+  for (const mesh of meshes)
+    for (const prim of mesh.listPrimitives()) {
+      const pos = prim.getAttribute("POSITION");
+      const el = [0, 0, 0];
+      for (let i = 0; i < pos.getCount(); i++) {
+        pos.getElement(i, el);
+        if (el[1] < minY) minY = el[1];
+        if (el[1] > maxY) maxY = el[1];
+      }
+    }
+  const spanY = Math.max(0.001, maxY - minY);
+
+  const hash = (x, y, z) => {
+    const n = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453;
+    return n - Math.floor(n);
+  };
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+  const COBBLE = [0.34, 0.33, 0.31];
+  const SAND = [0.66, 0.57, 0.44];
+  const PLASTER = [0.80, 0.75, 0.66];
+  const TIMBER = [0.28, 0.19, 0.13];
+  const TERRACOTTA = [0.58, 0.27, 0.19];
+  const SLATE = [0.28, 0.30, 0.35];
+  const MOSS = [0.32, 0.38, 0.24];
+
+  for (const mesh of meshes)
+    for (const prim of mesh.listPrimitives()) {
+      const pos = prim.getAttribute("POSITION");
+      const nrm = prim.getAttribute("NORMAL");
+      const count = pos.getCount();
+      const colors = new Float32Array(count * 3);
+      const p = [0, 0, 0];
+      const nn = [0, 1, 0];
+      for (let i = 0; i < count; i++) {
+        pos.getElement(i, p);
+        if (nrm) nrm.getElement(i, nn);
+        const t = (p[1] - minY) / spanY;
+        const up = Math.abs(nn[1]);
+        const bx = Math.floor(p[0] / 3);
+        const bz = Math.floor(p[2] / 3);
+        const blockHue = hash(bx, 0, bz);
+        const grain = (hash(Math.floor(p[0] * 6), Math.floor(p[1] * 6), Math.floor(p[2] * 6)) - 0.5) * 0.09;
+
+        let c;
+        if (t < 0.045 && up > 0.55) {
+          c = mix(COBBLE, MOSS, hash(bx, 1, bz) * 0.4);
+        } else if (t > 0.55 && up > 0.3) {
+          // roof: pick a covering per block
+          c = blockHue > 0.5 ? TERRACOTTA : SLATE;
+          c = mix(c, [0, 0, 0], (1 - Math.min(1, up)) * 0.25);
+        } else {
+          // wall: sandstone→plaster by height, occasional timber frame
+          const base = mix(SAND, PLASTER, Math.min(1, t * 1.6));
+          const timberChance = hash(bx * 2 + 1, Math.floor(p[1] * 2), bz * 2 + 1);
+          c = timberChance > 0.86 ? mix(base, TIMBER, 0.7) : mix(base, [base[0], base[1] * 0.96, base[2] * 0.9], blockHue);
+        }
+        // palette is authored in sRGB; glTF/three read COLOR_0 as linear
+        const lin = (v) => Math.pow(Math.max(0, Math.min(1, v + grain)), 2.2);
+        colors[i * 3] = lin(c[0]);
+        colors[i * 3 + 1] = lin(c[1]);
+        colors[i * 3 + 2] = lin(c[2]);
+      }
+      const acc = doc.createAccessor().setType("VEC3").setBuffer(buffer).setArray(colors);
+      prim.setAttribute("COLOR_0", acc);
+    }
+
+  // let the vertex colours drive the look
+  for (const m of doc.getRoot().listMaterials()) {
+    m.setBaseColorFactor([1, 1, 1, 1]);
+    m.setRoughnessFactor(0.95);
+    m.setMetallicFactor(0);
+  }
+  console.log(`  baked city vertex colours (Y ${minY.toFixed(2)}..${maxY.toFixed(2)})`);
 }
 
 async function attachBaseColor(doc, file) {
