@@ -72,7 +72,7 @@ export const CAMERA = {
 };
 
 /** Half-extents of the invisible play boundary, centred on origin. Tune to city. */
-export const BOUNDS = { x: 44, z: 44 };
+export const BOUNDS = { x: 39, z: 39 };
 
 export type GameMode = "onfoot" | "mounting" | "riding" | "dismounting";
 export type GaitName = keyof typeof HORSE.gaits;

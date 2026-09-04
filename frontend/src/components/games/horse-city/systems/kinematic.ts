@@ -1,5 +1,8 @@
 import * as THREE from "three";
+import { BOUNDS } from "../config";
 import { KinematicBody } from "./controller";
+
+const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 /**
  * Raycast collide-and-slide against the city mesh (a three.js Raycaster, no
@@ -68,6 +71,9 @@ export function makeCharacterBody(
         center.x += horiz.x;
         center.z += horiz.z;
       }
+      // invisible play boundary
+      center.x = clamp(center.x, -BOUNDS.x, BOUNDS.x);
+      center.z = clamp(center.z, -BOUNDS.z, BOUNDS.z);
 
       // ---- ground: thin down ray from just above the feet ----
       const feetY = center.y - halfHeight;
