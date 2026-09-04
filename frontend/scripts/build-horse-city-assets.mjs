@@ -10,7 +10,13 @@
  *   5. resizes/compresses textures and Draco-compresses geometry
  *   6. writes frontend/public/models/horse-city/{city,girl,horse}.glb
  *
- * Run from frontend/:  node scripts/build-horse-city-assets.mjs
+ * The committed GLBs are the source of truth; this script only needs to run to
+ * regenerate them. Its toolchain is intentionally NOT a project dependency —
+ * install it on demand, then run:
+ *
+ *   npm i --no-save obj2gltf@3 @gltf-transform/core@4 @gltf-transform/functions@4 \
+ *     @gltf-transform/extensions@4 meshoptimizer sharp draco3dgltf
+ *   node --max-old-space-size=8192 scripts/build-horse-city-assets.mjs
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, rmSync, existsSync, statSync } from "node:fs";
